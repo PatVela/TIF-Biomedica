@@ -81,8 +81,9 @@
     }
     .custom-file-label::after {
         content: "Explorar"; /* Texto del botón "Explorar" */
-        background-color: #e9ecef;
-        border-left: 1px solid #ced4da;
+        background-color: #4a5568; /* Fondo más oscuro para contraste */
+        color: #e2e8f0; /* Texto claro */
+        border-left: 1px solid #2d3748; /* Borde más oscuro */
         padding: 0.375rem 0.75rem;
         border-radius: 0 0.25rem 0.25rem 0;
         margin-left: 0.75rem;
@@ -289,12 +290,24 @@
                     </div>
                 </form>
 
+                <!-- Nueva sección para subir y formatear archivos de ECG -->
+                <form id="upload-ecg-for-format" method="post" enctype="multipart/form-data" class="mt-4">
+                    <div class="custom-file">
+                        <input type="file" class="custom-file-input" name="ecg_file_to_format" id="ecgFileToFormat" accept=".mat,.hea" multiple>
+                        <label class="custom-file-label" for="ecgFileToFormat">Seleccionar archivos ECG para formatear (.mat, .hea)...</label>
+                    </div>
+                    <div class="text-center mt-3">
+                        <button type="button" class="btn btn-primary btn-lg" id="btn-format-ecg">Formatear ECG a CSV</button>
+                    </div>
+                </form>
+
+
                 <div class="text-center mt-4">
                     <div class="image-section" style="display:none;">
                         <button type="button" class="btn btn-success btn-lg" id="btn-predict">¡Predecir Ahora!</button>
                     </div>
 
-                    <!-- REEMPLAZO DEL LOADER POR LA BARRA DE PROGRESO -->
+                    <!-- Barra de Progreso -->
                     <div class="progress-section" style="display:none;">
                         <div class="progress-bar-container">
                             <div class="progress-bar-fill" style="width: 0%;"></div>
@@ -307,7 +320,7 @@
 
         <div id="result" class="mt-4">
             <!-- Los resultados de la predicción (tablas) se insertarán aquí por JavaScript -->
-            <!-- Nota: Los botones colapsables y sus contenidos ahora se generan dinámicamente en main.js -->
+            <!-- Nota: Los botones colapsables y sus contenidos se generan dinámicamente en main.js -->
         </div>
     </div>
 </div>

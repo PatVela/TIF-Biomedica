@@ -30,6 +30,8 @@ para cada latido (aproximadamente 110.000 anotaciones en total) incluidas en la 
 
 from __future__ import division, print_function
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 from tqdm import tqdm
 import numpy as np
 import random

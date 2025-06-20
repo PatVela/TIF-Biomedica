@@ -9,6 +9,8 @@ from config import get_config
 from utils import *
 import contextlib # Importar contextlib para redirección de stderr
 import os # Importar os para os.devnull
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 def train(config, X, y, Xval=None, yval=None):
     

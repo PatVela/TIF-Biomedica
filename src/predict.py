@@ -8,6 +8,8 @@ Datos CINC provienen de https://physionet.org/challenge/2017/
 from __future__ import division, print_function
 import numpy as np
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import csv
 import matplotlib.pyplot as plt
 from scipy.io import loadmat
@@ -117,7 +119,7 @@ def predict_and_summarize(data, label, peaks, config, record_name_base):
     mkdir_recursive(record_output_dir)
 
     # Generar y guardar el gráfico de la señal ECG completa
-    full_ecg_plot_filename = f'full_ecg_signal_{record_name_base}.png'
+    full_ecg_plot_filename = f'ECG_Completo_{record_name_base}.png'
     full_ecg_plot_path = os.path.join(record_output_dir, full_ecg_plot_filename)
     plt.figure(figsize=(15, 6))
     plt.plot(data[0, :, 0]) # Asumiendo data es (1, length, 1)
@@ -329,7 +331,7 @@ def predictByPart(data, peaks, record_output_dir, record_name_base):
         result_string += f"({classes_map[ann_idx]}:{round(100 * prob[ann_idx], 1)}%)"
 
         # Generate a plot for EACH record segment
-        individual_record_plot_filename = f'segment_{current_record_num}_pred_{classes_map[ann_idx]}.png'
+        individual_record_plot_filename = f'Segmento_{current_record_num}_pred_{classes_map[ann_idx]}.png'
         individual_record_plot_path = os.path.join(record_output_dir, individual_record_plot_filename)
         plt.figure(figsize=(8, 4))
         plt.plot(data[0, start:end, 0])

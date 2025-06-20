@@ -5,6 +5,11 @@ from keras import backend as K
 from keras.optimizers import Adam
 from keras.saving import register_keras_serializable
 import tensorflow as tf
+tf.config.set_visible_devices([], 'GPU')
+tf.get_logger().setLevel('ERROR')
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 @register_keras_serializable(package="custom")
 def zeropad(x):

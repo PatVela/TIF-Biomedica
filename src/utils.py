@@ -4,7 +4,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve, precision_recall_curve, f1_score, classification_report
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import h5py
+import csv # Asegurarse de que csv esté importado para el reader
 
 def mkdir_recursive(path):
   if path == "":
@@ -37,8 +40,7 @@ def loaddata(input_size, feature):
     att = np.concatenate((X,y), axis=1)
     np.random.shuffle(att)
     X, y = att[:,:input_size], att[:, input_size:]
-    print("Training shapes after shuffle - X:", X.shape, "y:", y.shape)
-    print("Any NaN after shuffle - X:", np.any(np.isnan(X)), "y:", np.any(np.isnan(y)))
+    print("Training shapes after shuffle - X:", np.any(np.isnan(X)), "y:", np.any(np.isnan(y)))
     
     print("Loading validation data...")
     with h5py.File('dataset/test.keras', 'r') as f:
@@ -235,16 +237,35 @@ def add_noise(config):
     return noises
 
 def preprocess(data, config):
+    # Asegurarse de que data sea un array 1D para find_peaks
+    # data_signal_only ya debería ser un array 1D o una lista de números.
+    # En uploadedData ya se asegura que se devuelva como np.array 1D.
+    
+    # El sampling rate se pasa directamente en config.sample_rate
+
     sr = config.sample_rate
-    if sr == None:
+    if sr is None: # Si el sampling rate no se pudo obtener del archivo, usar el predeterminado
       sr = 300
+    
+    # Asegurar que `data` es 1D y numérico
+    if not isinstance(data, np.ndarray):
+        # Si por alguna razón data no es un array, intentamos convertirlo
+        data = np.array(data, dtype=np.float32)
+    
+    if data.ndim > 1:
+        data = data.flatten() # Asegurar que es 1D
+
     data = np.nan_to_num(data) # eliminando NaNs and Infs
+    
     from scipy.signal import resample
     data = resample(data, int(len(data) * 360 / sr) ) # remuestrear para que coincida con la frecuencia de muestreo de datos 360(mit), 300(cinc)
+    
     from sklearn import preprocessing
     data = preprocessing.scale(data)
+    
     from scipy.signal import find_peaks
-    peaks, _ = find_peaks(data, distance=150)
+    peaks, _ = find_peaks(data, distance=150) # data ya es 1-D aquí
+    
     data = data.reshape(1,len(data))
     data = np.expand_dims(data, axis=2) # Requerido por Keras
     return data, peaks
@@ -252,11 +273,40 @@ def preprocess(data, config):
 # predict 
 def uploadedData(filename, csvbool = True):
     if csvbool:
-      csvlist = list()
-      with open(filename, 'r') as csvfile:
-        for e in csvfile:
-          if len(e.split()) == 1 :
-            csvlist.append(float(e))
-          else:
-            csvlist.append(e)
-    return csvlist
+        csvlist = [] # Esta lista almacenará solo los valores numéricos
+        sampling_rate = None # Variable para almacenar la frecuencia de muestreo
+
+        with open(filename, 'r') as csvfile:
+            reader = csv.reader(csvfile)
+            
+            # Leer la primera línea (debe ser el sampling rate)
+            first_line = next(reader, None)
+            if first_line:
+                try:
+                    sampling_rate = float(first_line[0])
+                except (ValueError, IndexError):
+                    print(f"Advertencia: La primera línea '{first_line}' no es un sampling rate numérico válido. Se usará el valor por defecto.")
+                    sampling_rate = None # Asegurar que sea None si falla
+            
+            # Leer las líneas restantes (datos y posibles encabezados)
+            for row in reader:
+                if not row: # Saltar líneas completamente vacías
+                    continue
+                try:
+                    # Intentar convertir el primer elemento de la fila a flotante.
+                    # Si tiene éxito, es una línea de datos y se añade.
+                    # Si falla (ej. es 'ECG' o algún otro texto), se salta la línea.
+                    csvlist.append(float(row[0])) # Asumimos que los datos están en la primera columna
+                except (ValueError, IndexError):
+                    # Ignorar esta línea si contiene texto o está vacía/mal formateada
+                    continue
+        
+        # Devolver el sampling rate y los datos de la señal como un array numpy 1D
+        return sampling_rate, np.array(csvlist)
+    else:
+        # Si csvbool es False, esta parte no se está usando actualmente para la predicción,
+        # pero es importante asegurarse de que si se usa en otro lugar, maneje los datos
+        # como se espera (asumo que se refiere a los datos sin formato especial).
+        # Aquí puedes añadir la lógica original o levantar un error si no es una ruta esperada.
+        raise NotImplementedError("uploadedData con csvbool=False no está completamente implementada para este caso.")
+
