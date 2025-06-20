@@ -1,79 +1,122 @@
+# Clasificación de ECGs mediante Deep Learning
+
 [![license](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](./LICENSE)
 
-### Clasificacon de ECGs usando Deep Learning 
+Este repositorio contiene una implementación para la clasificación de señales de electrocardiogramas (ECGs) utilizando modelos de Deep Learning. El proyecto se inspira en las metodologías presentadas en publicaciones clave del área, específicamente:
+* [Nature Medicine (s41591-018-0268-3)](https://www.nature.com/articles/s41591-018-0268-3)
+* [arXiv (1707.01836)](https://arxiv.org/abs/1707.01836)
 
-Este repositorio es una implementación de https://www.nature.com/articles/s41591-018-0268-3 y https://arxiv.org/abs/1707.01836 y se enfoca en el entrenamiento usando el conjunto de datos MIT-BIH.
+Para el entrenamiento y validación de los modelos, se ha utilizado el reconocido conjunto de datos **MIT-BIH Arrhythmia Database**. Puedes encontrar más información sobre este dataset en PhysioNet: [https://physionet.org/physiobank/database/mitdb/](https://physionet.org/physiobank/database/mitdb/)
 
-Introducción al conjunto de datos MIT-BIH en physionet: https://physionet.org/physiobank/database/mitdb/
+## Requisitos del Sistema
 
-### Dependencias
+Para asegurar la correcta ejecución del proyecto y evitar problemas de compatibilidad, es crucial contar con las siguientes dependencias instaladas en su sistema:
 
-Python == 3.12.9
-- Flask==3.1.0
-- gevent==24.11.1
-- keras==3.9.1
-- numpy==2.1.3
-- pip-tools==7.4.1
-- scikit-learn==1.6.1
-- scipy==1.15.2
-- six==1.17.0
-- tensorflow==2.19.0
-- tensorflow-metal==1.2.0
-- tqdm==4.67.1
-- Werkzeug==3.1.3
-- wfdb==4.2.0
+* **Python**: `3.12.9`
+* **Flask**: `3.1.0`
+* **gevent**: `24.11.1`
+* **keras**: `3.9.1`
+* **numpy**: `2.1.3`
+* **pip-tools**: `7.4.1`
+* **scikit-learn**: `1.6.1`
+* **scipy**: `1.15.2`
+* **six**: `1.17.0`
+* **tensorflow**: `2.19.0`
+* **tensorflow-metal**: `1.2.0`
+* **tqdm**: `4.67.1`
+* **Werkzeug**: `3.1.3`
+* **wfdb**: `4.2.0`
 
-### Configuración de datos y entrenamiento
-```
-$ git clone https://github.com/PatVela/TIF-Biomedica.git
-$ cd TIF-Biomedica
-$ python -m venv ECG-env
-$ source ./ECG-env/bin/activate
-(ECG-env) $ pip install -r requirements.txt
-(ECG-env) $ python src/data.py --downloading True
-(ECG-env) $ python src/train.py --epochs 20
-```
-Ahora tienes un modelo entrenado para clasificación de ECG.
+## Configuración e Instalación
 
-### Prueba
-Predice una anotación de los datos CINC2017 o tus propios datos (archivo csv)
+1.  **Clonar el Repositorio:**
+    ```bash
+    git clone [https://github.com/PatVela/TIF-Biomedica.git](https://github.com/PatVela/TIF-Biomedica.git)
+    cd TIF-Biomedica
+    ```
+2.  **Crear y Activar Entorno Virtual:**
+    Se recomienda el uso de un entorno virtual para gestionar las dependencias del proyecto de forma aislada.
+    ```bash
+    python -m venv ECG-env
+    ```
+    * **En Linux/macOS:**
+        ```bash
+        source ./ECG-env/bin/activate
+        ```
+    Verá `(ECG-env)` en su terminal, indicando que el entorno está activo.
 
-Selecciona aleatoriamente uno de los datos y predice los fragmentos de la señal.
+3.  **Instalar Dependencias:**
+    ```bash
+    (ECG-env) pip install -r requirements.txt
+    ```
 
-Ejecuta predict.py en el entorno virtual que ya configuramos.
-```
-(ECG-env) $ python src/predict.py --cinc_download True
-```
-La opción --cinc_download se usa la primera vez para descargar los datos de CINC2017.
+## Configuración de Datos y Entrenamiento del Modelo
 
-Consulta src/config.py para poder personalizar tus parámetros.
+Una vez configurado el entorno, puede proceder con la descarga de datos y el entrenamiento del modelo:
 
-### Aplicación web con Flask
+1.  **Descargar y Preprocesar Datos:**
+    Este script se encargará de obtener el conjunto de datos MIT-BIH y realizar el preprocesamiento necesario.
+    ```bash
+    (ECG-env) python src/data.py --downloading True
+    ```
+2.  **Entrenar el Modelo de Deep Learning:**
+    Este comando inicia el proceso de entrenamiento de la red neuronal. El número de épocas puede ser ajustado según sea necesario.
+    ```bash
+    (ECG-env) python src/train.py --epochs 20
+    ```
 
-La aplicación web con Flask está basada en el repositorio de keras-flask-deploy Github repo.
+## 🧪 Pruebas y Predicción
 
-### Ejecutar app.py
-```
-(ECG-env) $ python src/app.py
-```
+El proyecto permite realizar predicciones utilizando datos del desafío CINC2017 o sus propios archivos CSV.
 
-![png](src/static/asset/Captura1.png)
+1.  **Ejecutar Predicciones:**
+    ```bash
+    (ECG-env) python src/predict.py --cinc_download True
+    ```
+    El argumento `--cinc_download True` es necesario solo la primera vez para descargar los datos de CINC2017. El script seleccionará aleatoriamente un registro y mostrará las predicciones del modelo.
 
-y elige una señal de ritmo cardíaco en formato csv, hacer click en predecir ahora y observar el resultado.
+2.  **Personalización de Parámetros:**
+    Para ajustar parámetros relacionados con la descarga, entrenamiento o predicción (como rutas, tamaños de lote, etc.), modifique el archivo `src/config.py`.
 
-![png](src/static/asset/Captura2.png)
+## Aplicación Web (Flask)
 
-Se ha incluido un archivo csv en el directorio static/asset. El primer valor de la columna se toma como la frecuencia de muestreo en la app web. 
-Si usas tu propio archivo csv con señal de ECG, asegúrate de insertar la frecuencia de muestreo al inicio también. 
+Se ha desarrollado una aplicación web utilizando Flask para demostrar interactivamente las capacidades del modelo de clasificación de ECG.
 
-### Referencias
+1.  **Ejecutar la Aplicación Web:**
+    Con el entorno virtual activado:
+    ```bash
+    (ECG-env) python src/app.py
+    ```
+    La aplicación estará disponible en su navegador, generalmente en `http://127.0.0.1:5000/`.
 
-Los artículos de investigación originales:
-https://www.nature.com/articles/s41591-018-0268-3
-https://arxiv.org/abs/1707.01836
+2.  **Interfaz de Usuario:**
+    La interfaz inicial de la aplicación se muestra a continuación:
+    ![Captura de la interfaz principal de la aplicación web](src/static/asset/Captura1.png)
 
-El código open source de los autores:
-https://github.com/awni/ecg
+3.  **Carga de Archivos CSV y Predicción:**
+    La aplicación permite la carga de archivos CSV que contengan señales de ECG.
 
-También destacable:
-https://github.com/fernandoandreotti/cinc-challenge2017/tree/master/deeplearn-approach
+    **Nota Importante sobre el Formato CSV:**
+    Es crucial que el archivo CSV proporcionado incluya la frecuencia de muestreo de la señal. **El primer valor de la primera columna del archivo debe ser la frecuencia de muestreo (sampling rate)**. Se incluye un archivo de ejemplo en `static/asset` para referencia.
+
+    Una vez cargado el archivo y activada la predicción, los resultados se visualizarán de manera similar a:
+    ![Captura de los resultados de la predicción en la aplicación web](src/static/asset/Captura2.png)
+
+## Referencias
+
+### Artículos de Investigación Originales:
+
+* Rajpurkar, P., et al. (2018). Cardiologist-level arrhythmia detection and classification in ambulatory electrocardiograms using a deep neural network. *Nature Medicine*, 24(12), 1761-1765.
+    [[Enlace a Nature Medicine]](https://www.nature.com/articles/s41591-018-0268-3)
+* Rajpurkar, P., et al. (2017). Deep Neural Networks for ECG Classification. *arXiv preprint arXiv:1707.01836*.
+    [[Enlace a arXiv]](https://arxiv.org/abs/1707.01836)
+
+### Código Fuente de los Autores:
+
+* Repositorio oficial de los autores de las publicaciones mencionadas:
+    [https://github.com/awni/ecg](https://github.com/awni/ecg)
+
+### Proyectos Relacionados:
+
+* Un enfoque Deep Learning para el desafío CINC2017:
+    [https://github.com/fernandoandreotti/cinc-challenge2017/tree/master/deeplearn-approach](https://github.com/fernandoandreotti/cinc-challenge2017/tree/master/deeplearn-approach)
