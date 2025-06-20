@@ -1,6 +1,6 @@
 [![license](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](./LICENSE)
 
-### ECG classification using MIT-BIH dataset 
+### Clasificacon de ECGs usando Deep Learning 
 
 Este repositorio es una implementación de https://www.nature.com/articles/s41591-018-0268-3 y https://arxiv.org/abs/1707.01836 y se enfoca en el entrenamiento usando el conjunto de datos MIT-BIH.
 
