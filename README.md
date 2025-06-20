@@ -1,16 +1,14 @@
 [![license](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](./LICENSE)
 
-## ECG classification using MIT-BIH dataset 
+### ECG classification using MIT-BIH dataset 
 
-This repo is an implementation of https://www.nature.com/articles/s41591-018-0268-3 and https://arxiv.org/abs/1707.01836
+Este repositorio es una implementación de https://www.nature.com/articles/s41591-018-0268-3 y https://arxiv.org/abs/1707.01836 y se enfoca en el entrenamiento usando el conjunto de datos MIT-BIH.
 
-and focus on training using a MIT-BIH dataset. If you want to train using CINC or open irhythm data, see the open source which the authors of the original research paper have coded at https://github.com/awni/ecg
+Introducción al conjunto de datos MIT-BIH en physionet: https://physionet.org/physiobank/database/mitdb/
 
-Introduction to MIT-BIH dataset at physionet : https://physionet.org/physiobank/database/mitdb/
+### Dependencias (Actualizado, 1 de abril de 2025)
 
-### Dependency (Updated, April 1, 2025)
-
-- Python == 3.12.9
+Python == 3.12.9
 - Flask==3.1.0
 - gevent==24.11.1
 - keras==3.9.1
@@ -25,86 +23,62 @@ Introduction to MIT-BIH dataset at physionet : https://physionet.org/physiobank/
 - Werkzeug==3.1.3
 - wfdb==4.2.0
 
-
-
-
-### Data setup and train 
-
-I recommend using a vitual enviroment for Python, so run setup.sh in order to install and to activate it. 
+### Configuración de datos y entrenamiento
 ```
-$ git clone https://github.com/physhik/ecg-mit-bih.git
-$ cd ecg-mit-bih
-$ python -m venv ecg-env
-$ source ./ecg-env/bin/activate
-(ecg-env) $ pip install -r requrirements.txt
-(ecg-env) $ python src/data.py --downloading True
-(eng-env) $ python src/train.py
+$ git clone https://github.com/PatVela/TIF-Biomedica.git
+$ cd TIF-Biomedica
+$ python -m venv ECG-env
+$ source ./ECG-env/bin/activate
+(ECG-env) $ pip install -r requirements.txt
+(ECG-env) $ python src/data.py --downloading True
+(ECG-env) $ python src/train.py --epochs 20
 ```
-Now you have a trained model for ECG classification 
+Ahora tienes un modelo entrenado para clasificación de ECG.
 
+### Prueba
+Predice una anotación de los datos CINC2017 o tus propios datos (archivo csv)
 
-### Test
+Selecciona aleatoriamente uno de los datos y predice los fragmentos de la señal.
 
-Predict an annotation of [CINC2017 data](https://physionet.org/challenge/2017/) or your own data(csv file)
-
-It randomly chooses one of data, and predict the slices of the signal.
-
-Run predict.py in the virtual environment we have already set up.
+Ejecuta predict.py en el entorno virtual que ya configuramos.
 ```
-(ecg-env) $ python src/predict.py --cinc_download True
+(ECG-env) $ python src/predict.py --cinc_download True
 ```
---cinc_download branch is used at first to download the CINC2017 data.
+La opción --cinc_download se usa la primera vez para descargar los datos de CINC2017.
 
-See src/config.py and customize your parameters or learn better way to train and test 
+Consulta src/config.py para poder personalizar tus parámetros.
+
+### Ejemplo con Jupyter notebook
+
+En caso de que no tengas una GPU con un rendimiento decente, podrías usar Google Colab. Sigue el notebook de Jupyter. [Jupyter notebook](https://github.com/physhik/ecg-mit-bih/blob/master/src/practice/ecg_mit.ipynb).
 
 
-### Jupyter notebook example
+### Aplicación web con Flask
 
-In case, you do not have a GPU above a decent performance, you might be able to use Google colab. Follow the [Jupyter notebook](https://github.com/physhik/ecg-mit-bih/blob/master/src/practice/ecg_mit.ipynb).
+La aplicación web con Flask está basada en el repositorio de keras-flask-deploy Github repo.
 
-
-### Flask web app
-
-The flask web app is based on the keras-flask-deploy [Github repo](https://github.com/mtobeiyf/keras-flask-deploy-webapp). 
-
-#### Run app.py
+### Ejecutar app.py
 ```
-(ecg-env) $ python src/app.py
+(ECG-env) $ python src/app.py
 ```
 
 ![png](src/static/asset/capture1.png)
 
-and choose a csv heart heat signal and click predict, and see the result. 
+y elige una señal de ritmo cardíaco en formato csv, haz clic en predecir y observa el resultado.
 
 ![png](src/static/asset/capture2.png)
 
-I have put one csv file in static/asset directory. The first value of the column become sample rate of the web app. If you use your own heart beat csv file, insert the sample at the first, too.   
-
-### Using Docker, Buld and run an image for the ECG trained model.(Not yet updated)
-
-
-After installation of Docker, 
-
-```
-$ docker-compose up -d .  
-```
-
-
-
-### Introduction to ECG 
-
-I presented a bit more about ECG classfications on my personal blog, http://physhik.github.io 
-
-Find the posts from tags or categories easily.  
+Se ha incluido un archivo csv en el directorio static/asset. El primer valor de la columna se toma como la frecuencia de muestreo en la app web. 
+Si usas tu propio archivo csv con señal de ECG, asegúrate de insertar la frecuencia de muestreo al inicio también. 
 
 ### Reference to 
 
-The original research papers
+Los artículos de investigación originales:
 https://www.nature.com/articles/s41591-018-0268-3
 https://arxiv.org/abs/1707.01836
 
-The open source by authors
+El código open source de los autores:
 https://github.com/awni/ecg
 
-also noticable 
+También destacable:
 https://github.com/fernandoandreotti/cinc-challenge2017/tree/master/deeplearn-approach
