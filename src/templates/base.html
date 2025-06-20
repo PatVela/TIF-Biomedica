@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Clasificador de ECG</title>
+
+    <!-- Enlace a Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    
+    <!-- Enlace a tu archivo CSS personalizado (main.css) -->
+    <!-- Asegúrate de que este archivo exista en la carpeta 'static/css/' de tu aplicación Flask -->
+    <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">      
+    
+    <!-- Enlace a Google Fonts para la fuente Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Estilos globales para el cuerpo */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #2c3e50; /* Un azul oscuro agradable */
+            color: #ecf0f1; /* Texto claro para contraste */
+        }
+        /* Navbar */
+        .navbar {
+            background-color: #34495e !important; /* Azul oscuro más oscuro para la barra de navegación */
+            border-bottom: 1px solid #2c3e50;
+        }
+        .navbar-brand {
+            color: #ecf0f1 !important;
+            font-weight: 600;
+        }
+        .navbar-nav .nav-link {
+            color: #bdc3c7 !important;
+        }
+        .navbar-nav .nav-link:hover {
+            color: #ecf0f1 !important;
+        }
+        /* Jumbotron (sección de bienvenida) */
+        .jumbotron {
+            background-color: #34495e; /* Un azul oscuro para el jumbotron */
+            color: #ecf0f1;
+            padding: 3rem 2rem;
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-xl */
+        }
+        .jumbotron .display-4 {
+            color: #67e8f9; /* Cian brillante para el título */
+            font-weight: 700;
+        }
+        /* Cards (contenedores de contenido) */
+        .card {
+            background-color: #2d3748; /* Fondo de tarjeta más oscuro */
+            color: #e2e8f0;
+            border: none;
+            border-radius: 0.75rem; /* rounded-lg */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
+        }
+        .card-header {
+            background-color: #2c3e50; /* Fondo de encabezado de tarjeta */
+            color: #cbd5e0;
+            font-weight: 600;
+            border-bottom: 1px solid #34495e;
+        }
+        /* Pie de página */
+        footer {
+            background-color: #34495e;
+            color: #ecf0f1;
+            font-size: 0.9rem;
+            border-top: 1px solid #2c3e50;
+        }
+        /* Ajuste para el easter egg: solo el texto clickeable */
+        #footerDate {
+            display: inline-block; /* Para que ocupe solo el ancho de su contenido */
+            cursor: pointer; /* Solo aquí se aplica el cursor de puntero */
+            color: inherit;
+            text-decoration: none;
+        }
+        #footerDate:hover {
+            color: #67e8f9;
+            text-decoration: underline;
+        }
+
+        /* Estilo para el loader (círculo giratorio) - si aún se usa en alguna parte */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+            margin: 20px auto;
+            display: none; /* Oculto por defecto */
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Asegúrate de que las imágenes SVG/generadas se vean bien */
+        img.segment-image {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        /* Estilos para el modal de instrucciones */
+        #instructionsModal .modal-content {
+            background-color: #2d3748; /* Fondo oscuro para el contenido del modal */
+            color: #e2e8f0; /* Texto claro */
+        }
+        #instructionsModal .modal-header {
+            background-color: #34495e; /* Fondo más oscuro para el encabezado del modal */
+            border-bottom: 1px solid #2c3e50;
+        }
+        #instructionsModal .modal-title {
+            color: #ecf0f1;
+        }
+        #instructionsModal .close {
+            color: #ecf0f1;
+            opacity: 1;
+        }
+        #instructionsModal .close:hover {
+            color: #67e8f9;
+        }
+        #instructionsModal .modal-body {
+            background-color: #2d3748; /* Fondo oscuro para el cuerpo del modal */
+        }
+        #instructionsModal .modal-body p,
+        #instructionsModal .modal-body ol,
+        #instructionsModal .modal-body li {
+            color: #e2e8f0; /* Asegura que el texto sea claro */
+        }
+        #instructionsModal .modal-footer {
+            background-color: #34495e; /* Fondo más oscuro para el pie del modal */
+            border-top: 1px solid #2c3e50;
+        }
+        /* Estilo para el texto "Desarrollado por" para el nuevo easter egg */
+        #devInfo {
+            display: inline-block; /* Para que ocupe solo el ancho de su contenido */
+            cursor: pointer;
+            color: #bdc3c7; /* Color similar al text-muted */
+            text-decoration: none;
+        }
+        #devInfo:hover {
+            color: #67e8f9;
+            text-decoration: underline;
+        }
+
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <a class="navbar-brand" href="#">Clasificador ECG</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item active">
+                    <a class="nav-link" href="#">Inicio <span class="sr-only">(current)</span></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-toggle="modal" data-target="#instructionsModal">Instrucciones</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Modal de Instrucciones -->
+    <div class="modal fade" id="instructionsModal" tabindex="-1" role="dialog" aria-labelledby="instructionsModalLabel" aria-hidden="true">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="instructionsModalLabel">Instrucciones de Uso</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <p>Siga estos pasos para utilizar el clasificador de ECG:</p>
+            <ol>
+              <li>Seleccione un archivo de datos de ECG en formato <strong>.csv</strong>. Asegúrese de que el archivo no exceda los 5 MB.</li>
+              <li>Haga clic en "Predecir!" para iniciar el análisis.</li>
+              <li>Los resultados se mostrarán en dos tablas: un resumen general y un detalle por cada segmento analizado.</li>
+              <!-- Nueva instrucción para los botones de gráficos -->
+              <li>Utilice los botones "Mostrar ECG Completo" y "Mostrar ECGs de Segmentos" para visualizar los gráficos generados.</li>
+            </ol>
+            <hr>
+            <!-- Nuevo Easter Egg: Click en esta parte para un meme aleatorio -->
+            <a href="#" id="devInfo" style="text-decoration: none;">
+                <p class="text-muted small">Desarrollado por JPDV y EMOG.</p>
+            </a>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="text-center mt-4 py-3">
+        <div class="container">
+            <!-- EASTER EGG: Click en la fecha para rickroll -->
+            <a href="#" id="footerDate">
+                <span class="text-muted">TIF Biomédicas &copy; 2025</span>
+            </a>
+        </div>
+    </footer>
+
+    <!-- Scripts de Bootstrap JS, jQuery y Popper.js -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <!-- Enlace a tu archivo JavaScript principal (main.js) -->
+    <!-- Asegúrate de que este archivo exista en la carpeta 'static/js/' de tu aplicación Flask -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
