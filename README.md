@@ -6,7 +6,7 @@ Este repositorio es una implementación de https://www.nature.com/articles/s4159
 
 Introducción al conjunto de datos MIT-BIH en physionet: https://physionet.org/physiobank/database/mitdb/
 
-### Dependencias (Actualizado, 1 de abril de 2025)
+### Dependencias
 
 Python == 3.12.9
 - Flask==3.1.0
@@ -48,11 +48,6 @@ La opción --cinc_download se usa la primera vez para descargar los datos de CIN
 
 Consulta src/config.py para poder personalizar tus parámetros.
 
-### Ejemplo con Jupyter notebook
-
-En caso de que no tengas una GPU con un rendimiento decente, podrías usar Google Colab. Sigue el notebook de Jupyter. [Jupyter notebook](https://github.com/physhik/ecg-mit-bih/blob/master/src/practice/ecg_mit.ipynb).
-
-
 ### Aplicación web con Flask
 
 La aplicación web con Flask está basada en el repositorio de keras-flask-deploy Github repo.
@@ -62,16 +57,16 @@ La aplicación web con Flask está basada en el repositorio de keras-flask-deplo
 (ECG-env) $ python src/app.py
 ```
 
-![png](src/static/asset/capture1.png)
+![png](src/static/asset/Captura1.png)
 
-y elige una señal de ritmo cardíaco en formato csv, haz clic en predecir y observa el resultado.
+y elige una señal de ritmo cardíaco en formato csv, hacer click en predecir ahora y observar el resultado.
 
-![png](src/static/asset/capture2.png)
+![png](src/static/asset/Captura2.png)
 
 Se ha incluido un archivo csv en el directorio static/asset. El primer valor de la columna se toma como la frecuencia de muestreo en la app web. 
 Si usas tu propio archivo csv con señal de ECG, asegúrate de insertar la frecuencia de muestreo al inicio también. 
 
-### Reference to 
+### Referencias
 
 Los artículos de investigación originales:
 https://www.nature.com/articles/s41591-018-0268-3
