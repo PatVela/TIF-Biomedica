@@ -127,9 +127,128 @@ def predict_and_summarize(data, label, peaks, config, record_name_base):
     plt.xlabel("Muestras")
     plt.ylabel("Amplitud normalizada")
     plt.grid(True)
-    plt.savefig(full_ecg_plot_path, format="png", dpi=300, bbox_inches='tight')
+    # --- AJUSTE para padding horizontal en el gráfico completo ---
+    ax = plt.gca()
+    ax.set_xlim(0, len(data[0, :, 0]) - 1) # Establecer límite exacto del eje X
+    ax.autoscale_view() # Asegurar que la vista de los ejes se actualice
+    # --- FIN AJUSTE ---
+    plt.savefig(full_ecg_plot_path, format="png", dpi=300, bbox_inches='tight', pad_inches=0) 
     plt.close()
     print(f"{Colors.BLUE}Señal ECG completa guardada en: {full_ecg_plot_path}{Colors.ENDC}")
+
+    # --- NUEVO: Generar y guardar el gráfico de la señal ECG para lectura ---
+    ecg_lectura_filename = f'ECG_Lectura_{record_name_base}.png'
+    ecg_lectura_plot_path = os.path.join(record_output_dir, ecg_lectura_filename)
+    
+    # Calcular las dimensiones para un espaciado similar a un ECG real
+    # Asumiendo 360 Hz (después del remuestreo en preprocess) y 25 mm/s de velocidad de papel
+    # 360 muestras/s / 25 mm/s = 14.4 muestras/mm
+    # Queremos ~10 segundos de datos visibles. 10s * 360 muestras/s = 3600 muestras.
+    num_samples = len(data[0, :, 0])
+    seconds = num_samples / 360
+    mm_per_second = 25
+    total_mm = seconds * mm_per_second
+    
+    # Establecer la relación de aspecto para que se parezca a un papel de ECG
+    # Ancho: total_mm, Alto: ~60mm (para una derivación). Relación de aspecto ~ total_mm / 60
+    fig_width = total_mm / 10 # Convertir mm a pulgadas para figsize (aprox)
+    fig_height = 6 # Altura fija en pulgadas
+
+    plt.figure(figsize=(fig_width, fig_height))
+    plt.plot(data[0, :, 0], color='black', linewidth=0.75)
+    plt.title(f"ECG para Lectura: {record_name_base}")
+    plt.xlabel(f"Tiempo (s) - {mm_per_second} mm/s")
+    
+    # Configurar los ejes para que se parezcan a un papel de ECG
+    ax = plt.gca()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_color('#d3d3d3')
+    ax.spines['left'].set_color('#d3d3d3')
+
+    # Rejilla principal (cuadrados de 5mm)
+    # 1 segundo = 25 mm = 5 cuadrados grandes. 1 cuadrado = 0.2 s
+    major_ticks_x = np.arange(0, num_samples, 0.2 * 360) # Cada 0.2 segundos
+    major_ticks_y = np.arange(np.floor(data.min()), np.ceil(data.max()), 0.5) # Cada 0.5 mV
+    ax.set_xticks(major_ticks_x)
+    ax.set_yticks(major_ticks_y)
+    ax.grid(which='major', linestyle='-', linewidth='0.5', color='red')
+    
+    # Rejilla secundaria (cuadrados de 1mm)
+    # 1 cuadrado grande = 5 cuadrados pequeños. 0.2s / 5 = 0.04s
+    minor_ticks_x = np.arange(0, num_samples, 0.04 * 360)
+    minor_ticks_y = np.arange(np.floor(data.min()), np.ceil(data.max()), 0.1)
+    ax.set_xticks(minor_ticks_x, minor=True)
+    ax.set_yticks(minor_ticks_y, minor=True)
+    ax.grid(which='minor', linestyle=':', linewidth='0.5', color='lightcoral')
+
+    #Establecer los límites del eje X para eliminar el padding horizontal
+    ax.set_xlim(0, num_samples - 1) # Ajusta el límite derecho a `num_samples - 1` para incluir el último punto.
+
+    # Etiquetas de los ejes
+    ax.set_xticklabels([f'{tick/360:.1f}' for tick in major_ticks_x])
+    plt.ylabel("Amplitud (mV)")
+
+    #Ajustar los límites del eje Y para que se ajusten perfectamente a los datos
+    # Reducir el padding vertical a 0.01 (1%) para un ajuste más ceñido
+    y_min, y_max = data.min(), data.max()
+    ax.set_ylim(y_min - (y_max - y_min) * 0.01, y_max + (y_max - y_min) * 0.01) # Padding vertical muy reducido
+    ax.autoscale_view() # Asegurar que la vista de los ejes se actualice
+
+    plt.savefig(ecg_lectura_plot_path, format="png", dpi=300, bbox_inches='tight', pad_inches=0) 
+    plt.close()
+    print(f"{Colors.BLUE}Gráfico de lectura de ECG guardado en: {ecg_lectura_plot_path}{Colors.ENDC}")
+    # --- FIN NUEVO ---
+
+    # --- NUEVO: Generar y guardar el gráfico de la señal ECG de lectura reducido ---
+    ecg_lectura_reducido_filename = f'ECG_Lectura_Reducido_{record_name_base}.png'
+    ecg_lectura_reducido_plot_path = os.path.join(record_output_dir, ecg_lectura_reducido_filename)
+
+    # Reducir el número de muestras a la mitad para el gráfico reducido
+    half_num_samples = num_samples // 2
+    data_reduced = data[0, :half_num_samples, 0]
+
+    plt.figure(figsize=(fig_width / 2, fig_height)) # Ancho de la figura a la mitad
+    plt.plot(data_reduced, color='black', linewidth=0.75)
+    plt.title(f"ECG para Lectura Reducido: {record_name_base}")
+    plt.xlabel(f"Tiempo (s) - {mm_per_second} mm/s")
+
+    # Configurar los ejes para que se parezcan a un papel de ECG (ajustado para el tamaño reducido)
+    ax_reducido = plt.gca()
+    ax_reducido.spines['top'].set_visible(False)
+    ax_reducido.spines['right'].set_visible(False)
+    ax_reducido.spines['bottom'].set_color('#d3d3d3')
+    ax_reducido.spines['left'].set_color('#d3d3d3')
+
+    # Rejilla principal (cuadrados de 5mm)
+    major_ticks_x_reducido = np.arange(0, half_num_samples, 0.2 * 360)
+    major_ticks_y_reducido = np.arange(np.floor(data.min()), np.ceil(data.max()), 0.5)
+    ax_reducido.set_xticks(major_ticks_x_reducido)
+    ax_reducido.set_yticks(major_ticks_y_reducido)
+    ax_reducido.grid(which='major', linestyle='-', linewidth='0.5', color='red')
+
+    # Rejilla secundaria (cuadrados de 1mm)
+    minor_ticks_x_reducido = np.arange(0, half_num_samples, 0.04 * 360)
+    minor_ticks_y_reducido = np.arange(np.floor(data.min()), np.ceil(data.max()), 0.1)
+    ax_reducido.set_xticks(minor_ticks_x_reducido, minor=True)
+    ax_reducido.set_yticks(minor_ticks_y_reducido, minor=True)
+    ax_reducido.grid(which='minor', linestyle=':', linewidth='0.5', color='lightcoral')
+
+    # Establecer los límites del eje X para eliminar el padding horizontal
+    ax_reducido.set_xlim(0, half_num_samples - 1)
+
+    # Etiquetas de los ejes
+    ax_reducido.set_xticklabels([f'{tick/360:.1f}' for tick in major_ticks_x_reducido])
+    plt.ylabel("Amplitud (mV)")
+
+    # Ajustar los límites del eje Y para que se ajusten perfectamente a los datos
+    ax_reducido.set_ylim(y_min - (y_max - y_min) * 0.01, y_max + (y_max - y_min) * 0.01)
+    ax_reducido.autoscale_view()
+
+    plt.savefig(ecg_lectura_reducido_plot_path, format="png", dpi=300, bbox_inches='tight', pad_inches=0)
+    plt.close()
+    print(f"{Colors.BLUE}Gráfico de lectura de ECG reducido guardado en: {ecg_lectura_reducido_plot_path}{Colors.ENDC}")
+    # --- FIN NUEVO: Gráfico reducido ---
 
     # Realiza la predicción por partes y obtiene la lista de predicciones y la cadena de resultados
     # MODIFICACIÓN: predictByPart ahora devolverá también las rutas de los gráficos de segmentos
@@ -199,7 +318,7 @@ def predict_and_summarize(data, label, peaks, config, record_name_base):
 
     # Build the results dictionary
     summary_results = {
-        'predictions_detailed': predicted_list_raw, # Now contains the full probability array and plot path
+        'predictions_detailed': predicted_list_raw, # CORREGIDO: Usar predicted_list_raw
         'prediction_summary_string': result_string, # This is the CLI output string (maintained for compatibility)
         'most_probable_class': most_probable_class,
         'most_probable_certainty': most_probable_certainty,
@@ -210,6 +329,8 @@ def predict_and_summarize(data, label, peaks, config, record_name_base):
         'original_label': label,
         'average_probabilities': avg_predict.tolist(), # Convert to list for serialization if necessary
         'full_ecg_plot_path': full_ecg_plot_path, # Path to the full ECG plot
+        'ecg_lectura_plot_path': ecg_lectura_plot_path, # NUEVO: Path al ECG de lectura
+        'ecg_lectura_reducido_plot_path': ecg_lectura_reducido_plot_path, # NUEVO: Path al ECG de lectura reducido
         'segment_plot_paths': segment_plot_paths, # List of paths to segment plots
         'summary': summary_counts # Ensure summary is always present
     }
@@ -339,7 +460,12 @@ def predictByPart(data, peaks, record_output_dir, record_name_base):
         plt.xlabel("Muestras")
         plt.ylabel("Amplitud normalizada")
         plt.grid(True)
-        plt.savefig(individual_record_plot_path, format="png", dpi=300, bbox_inches='tight')
+        # --- AJUSTE para padding horizontal en el gráfico de segmento ---
+        ax = plt.gca()
+        ax.set_xlim(0, (end - start) - 1) # Establecer límite exacto del eje X para el segmento
+        ax.autoscale_view() # Asegurar que la vista de los ejes se actualice
+        # --- FIN AJUSTE ---
+        plt.savefig(individual_record_plot_path, format="png", dpi=300, bbox_inches='tight', pad_inches=0) 
         plt.close()
         segment_plot_paths.append(individual_record_plot_path) # Add path to the list
 
@@ -460,7 +586,7 @@ def main(config):
             # Table header
             print(f"{Colors.CYAN}| {Colors.UNDERLINE}{'Clase':<{col1_width_avg}}{Colors.ENDC}{Colors.CYAN} | {Colors.UNDERLINE}{'Probabilidad Media':<{col2_width_avg}}{Colors.ENDC}{Colors.CYAN} |{Colors.ENDC}")
             # Separator between header and data
-            print(f"{Colors.CYAN}+{'-' * (col1_width_avg + 2)}+{'-' * (col2_width_avg + 2)}+{Colors.ENDC}")
+            print(f"{Colors.CYAN}+{'-' * (col1_width_avg + 2)}+{'-' * (col2_width + 2)}+{Colors.ENDC}")
             
             for i, prob_avg in enumerate(prediction_summary['average_probabilities']):
                 # Alternate text colors for rows

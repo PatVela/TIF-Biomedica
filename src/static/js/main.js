@@ -318,7 +318,7 @@ $(document).ready(function () {
                         </div>
                     </div>
 
-                   <!-- NUEVO: Botón para descargar el ZIP de resultados ECG -->
+                    <!-- NUEVO: Botón para descargar el ZIP de resultados ECG -->
                     <button id="btn-download-ecg-zip" class="btn btn-success btn-lg btn-block mt-4">
                         Descargar Resultados ECG (ZIP)
                     </button>
@@ -330,18 +330,20 @@ $(document).ready(function () {
                 const downloadEcgZipButton = $('#btn-download-ecg-zip');
 
                 // Lógica para el botón de descarga
-                if (data.full_ecg_plot_url) {
+                if (data.full_ecg_plot_url) { // La lógica de descarga depende de que exista al menos un gráfico
                     // Extraer el nombre base del registro de la URL del ECG completo
+                    // Se asume que la URL es algo como /resultados/NombreDelRegistro/ECG_Completo_...
                     const urlPath = data.full_ecg_plot_url.startsWith('/') ? data.full_ecg_plot_url.substring(1) : data.full_ecg_plot_url;
                     const urlParts = urlPath.split('/');
-                    // Se asume que el record_name_base es el tercer elemento si la ruta es /resultados/NombreRegistro/archivo.png
-                    const recordNameBase = urlParts[1]; 
+                    const recordNameBase = urlParts.length > 1 ? urlParts[1] : null;
 
-                    // Almacenar el nombre base del registro como un atributo de datos en el botón
-                    downloadEcgZipButton.data('record-name-base', recordNameBase);
-                    
-                    // Mostrar el botón de descarga
-                    downloadEcgZipButton.show(); 
+                    if (recordNameBase) {
+                        // Almacenar el nombre base del registro como un atributo de datos en el botón
+                        downloadEcgZipButton.data('record-name-base', recordNameBase);
+                        downloadEcgZipButton.show();
+                    } else {
+                        downloadEcgZipButton.hide();
+                    }
                 } else {
                     // Si no hay URL del ECG completo, ocultar el botón de descarga
                     downloadEcgZipButton.hide();

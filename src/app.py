@@ -141,6 +141,13 @@ def upload():
             full_ecg_plot_url = url_for('results_static', filename=prediction_summary_data['full_ecg_plot_path']) \
                                         if prediction_summary_data.get('full_ecg_plot_path') else None
 
+            # Obtener la URL para el gráfico ECG_Lectura
+            ecg_lectura_plot_url = url_for('results_static', filename=prediction_summary_data['ecg_lectura_plot_path']) \
+                                       if prediction_summary_data.get('ecg_lectura_plot_path') else None
+
+            # Obtener la URL para el gráfico ECG_Lectura_Reducido (NUEVA LÍNEA)
+            ecg_lectura_reducido_plot_url = url_for('results_static', filename=prediction_summary_data['ecg_lectura_reducido_plot_path']) \
+                                                 if prediction_summary_data.get('ecg_lectura_reducido_plot_path') else None
 
             # URLs para los segmentos y formateo de probabilidades
             for segment_data in prediction_summary_data['predictions_detailed']:
@@ -183,6 +190,8 @@ def upload():
                 'original_label': prediction_summary_data.get('original_label'),
                 'average_probabilities': prediction_summary_data.get('average_probabilities'), # Array de probabilidades promedio
                 'full_ecg_plot_url': full_ecg_plot_url,
+                'ecg_lectura_plot_url': ecg_lectura_plot_url, # Añadido
+                'ecg_lectura_reducido_plot_url': ecg_lectura_reducido_plot_url, # NUEVA LÍNEA: Añadido al JSON
                 'segment_plot_urls': segment_plot_urls
             }
             
