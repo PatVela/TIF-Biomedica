@@ -2,15 +2,15 @@
 
 [![license](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](./LICENSE)
 
-Este repositorio contiene una implementación para la clasificación de señales de electrocardiogramas (ECGs) utilizando modelos de Deep Learning. El proyecto se inspira en las metodologías presentadas en publicaciones clave del área, específicamente:
+Este repositorio contiene una implementación para la clasificación de señales de electrocardiogramas (ECGs) utilizando modelos de Deep Learning. El proyecto se inspira en las metodologías presentadas en las siguientes publicaciones:
 * [Nature Medicine (s41591-018-0268-3)](https://www.nature.com/articles/s41591-018-0268-3)
 * [arXiv (1707.01836)](https://arxiv.org/abs/1707.01836)
 
-Para el entrenamiento y validación de los modelos, se ha utilizado el reconocido conjunto de datos **MIT-BIH Arrhythmia Database**. Puedes encontrar más información sobre este dataset en PhysioNet: [https://physionet.org/physiobank/database/mitdb/](https://physionet.org/physiobank/database/mitdb/)
+Para el entrenamiento y validación de los modelos, se ha utilizado el  conjunto de datos **MIT-BIH Arrhythmia Database**. Se puede encontrar más información sobre este dataset en PhysioNet: [https://physionet.org/physiobank/database/mitdb/](https://physionet.org/physiobank/database/mitdb/)
 
 ## Requisitos del Sistema
 
-Para asegurar la correcta ejecución del proyecto y evitar problemas de compatibilidad, es crucial contar con las siguientes dependencias instaladas en su sistema:
+Para la ejecución del proyecto y evitar problemas de compatibilidad, es importante contar con las siguientes versiones especificas de dependencias instaladas en su sistema:
 
 * **Python**: `3.12.9`
 * **Flask**: `3.1.0`
