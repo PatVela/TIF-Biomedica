@@ -247,10 +247,9 @@ def download_ecg_results(record_name_base):
 @app.route('/format_ecg', methods=['POST'])
 def format_ecg_to_csv():
     """
-    Recibe archivos WFDB (.mat y .hea), los lee, extrae la derivación MLII (o la segunda),
+    Recibe archivos WFDB (.mat, .dat y .hea), los lee, extrae la derivación MLII (o la segunda),
     y convierte los datos a formato CSV. Luego envía el archivo resultante para su descarga.
     """
-    # Usamos request.files.getlist para obtener todos los archivos con el mismo nombre de campo
     uploaded_files = request.files.getlist('ecg_file_to_format')
     if not uploaded_files:
         return jsonify({'error': 'No se encontraron archivos en la solicitud.'}), 400
@@ -259,7 +258,6 @@ def format_ecg_to_csv():
     upload_dir = os.path.join(basepath, app.config['UPLOAD_FOLDER'])
     mkdir_recursive(upload_dir)
 
-    # Creamos una subcarpeta temporal para almacenar los archivos WFDB subidos
     temp_dir_name = f"temp_wfdb_{os.urandom(8).hex()}"
     temp_wfdb_dir = os.path.join(upload_dir, temp_dir_name)
     mkdir_recursive(temp_wfdb_dir)
@@ -267,95 +265,93 @@ def format_ecg_to_csv():
     file_base_name = None
     hea_file_path = None
     mat_file_path = None
+    dat_file_path = None
 
-    # Guardar todos los archivos subidos en la carpeta temporal
     for uploaded_file in uploaded_files:
         if uploaded_file.filename == '':
-            continue # Saltar archivos vacíos
+            continue
 
         original_filename = secure_filename(uploaded_file.filename)
         file_extension = os.path.splitext(original_filename)[1].lower()
         current_file_base_name = os.path.splitext(original_filename)[0]
 
-        # Necesitamos que todos los archivos compartan el mismo nombre base
         if file_base_name is None:
             file_base_name = current_file_base_name
         elif file_base_name != current_file_base_name:
-            shutil.rmtree(temp_wfdb_dir) # Limpiar si los nombres base no coinciden
-            return jsonify({'error': 'Todos los archivos WFDB deben tener el mismo nombre base (ej. record.mat y record.hea).'}), 400
+            shutil.rmtree(temp_wfdb_dir)
+            return jsonify({'error': 'Todos los archivos WFDB deben tener el mismo nombre base (ej. record.mat y record.hea, o record.dat y record.hea).'}), 400
         
         temp_file_path = os.path.join(temp_wfdb_dir, original_filename)
-        uploaded_file.save(temp_file_path) # Guardar el archivo subido
+        uploaded_file.save(temp_file_path)
 
         if file_extension == '.hea':
             hea_file_path = temp_file_path
         elif file_extension == '.mat':
             mat_file_path = temp_file_path
+        elif file_extension == '.dat':
+            dat_file_path = temp_file_path
 
-    if not hea_file_path or not mat_file_path:
-        shutil.rmtree(temp_wfdb_dir) # Limpiar si no se encontraron ambos tipos
-        return jsonify({'error': 'Se requieren tanto el archivo .hea como el .mat para el formateo WFDB.'}), 400
+    signal_data = None
+    sampling_rate = None
+    record_name_only = os.path.splitext(file_base_name)[0] # Base name without extension
 
-    csv_file_path = None
     try:
-        # Cargar el archivo .mat usando scipy.io.loadmat
-        data_mat = loadmat(mat_file_path)
-        
-        # Extraer los datos de la señal.
-        signal_data = None
-        if 'val' in data_mat:
-            signal_data = data_mat['val']
+        if hea_file_path and mat_file_path:
+            # Lógica para archivos .mat y .hea
+            data_mat = loadmat(mat_file_path)
+            if 'val' in data_mat:
+                signal_data = data_mat['val']
+            else:
+                for key in data_mat:
+                    if not key.startswith('__') and isinstance(data_mat[key], np.ndarray):
+                        signal_data = data_mat[key]
+                        break
+                if signal_data is None:
+                    raise ValueError("No se encontraron datos de señal válidos en el archivo .mat (ni 'val' ni otras claves de datos).")
+
+            # Intentar leer el encabezado para el sampling rate
+            try:
+                record_header = wfdb.rdheader(os.path.join(temp_wfdb_dir, record_name_only))
+                sampling_rate = record_header.fs if hasattr(record_header, 'fs') else None
+            except Exception as e_header:
+                print(f"Advertencia: No se pudo leer el archivo .hea para el sampling rate (mat/hea): {e_header}. Usando valor por defecto.")
+
+        elif hea_file_path and dat_file_path:
+            # Lógica para archivos .dat y .hea usando wfdb.rdrecord
+            record = wfdb.rdrecord(os.path.join(temp_wfdb_dir, record_name_only))
+            signal_data = record.p_signal # Obtener la señal principal
+            sampling_rate = record.fs if hasattr(record, 'fs') else None
+
+            # Si signal_data es 2D (múltiples derivaciones), seleccionar MLII o la segunda
+            if signal_data.ndim == 2:
+                lead_index = 1 # Por defecto, la segunda derivación
+                if hasattr(record, 'sig_name'):
+                    signal_names = record.sig_name
+                    try:
+                        lead_index = [name.upper() for name in signal_names].index('MLII')
+                        print(f"Derivación 'MLII' encontrada en el índice {lead_index}.")
+                    except ValueError:
+                        print("Advertencia: No se encontró la derivación 'MLII'. Usando la segunda derivación (índice 1) por defecto.")
+                
+                # Asegurarse de que el índice de la derivación sea válido
+                if lead_index >= signal_data.shape[1]: # Comprobar contra el número de columnas (derivaciones)
+                    print(f"Error: El índice de la derivación ({lead_index}) está fuera de los límites. Usando la primera derivación (índice 0).")
+                    lead_index = 0
+                selected_lead_data = signal_data[:, lead_index] # Seleccionar la derivación
+            else:
+                selected_lead_data = signal_data # Si ya es 1D, usar directamente
+            
+            signal_data = selected_lead_data # Usar la derivación seleccionada como signal_data
+
         else:
-            # Fallback: buscar otras claves que no sean metadatos
-            for key in data_mat:
-                if not key.startswith('__') and isinstance(data_mat[key], np.ndarray):
-                    signal_data = data_mat[key]
-                    break
-            if signal_data is None:
-                raise ValueError("No se encontraron datos de señal válidos en el archivo .mat (ni 'val' ni otras claves de datos).")
+            shutil.rmtree(temp_wfdb_dir)
+            return jsonify({'error': 'Se requieren un par de archivos WFDB (.hea con .mat o .hea con .dat) para el formateo.'}), 400
 
         if signal_data is None or signal_data.size == 0:
-            raise ValueError("Los datos de señal no pudieron ser leídos o están vacíos en el archivo .mat.")
-
-        # Leer el encabezado WFDB para obtener la frecuencia de muestreo y los nombres de las derivaciones
-        record_name_only = os.path.splitext(os.path.basename(hea_file_path))[0]
-        record_dir_only = os.path.dirname(hea_file_path)
-        
-        sampling_rate = None
-        lead_index = 1  # Por defecto, la segunda derivación (índice 1)
-
-        try:
-            record_header = wfdb.rdheader(os.path.join(record_dir_only, record_name_only))
-            sampling_rate = record_header.fs if hasattr(record_header, 'fs') else None
-            
-            # Intentar encontrar la derivación MLII
-            if hasattr(record_header, 'sig_name'):
-                signal_names = record_header.sig_name
-                try:
-                    # Buscar 'MLII' (insensible a mayúsculas/minúsculas)
-                    lead_index = [name.upper() for name in signal_names].index('MLII')
-                    print(f"Derivación 'MLII' encontrada en el índice {lead_index}.")
-                except ValueError:
-                    print("Advertencia: No se encontró la derivación 'MLII'. Usando la segunda derivación (índice 1) por defecto.")
-                    lead_index = 1
-            
-            # Asegurarse de que el índice de la derivación sea válido
-            if lead_index >= signal_data.shape[0]:
-                print(f"Error: El índice de la derivación ({lead_index}) está fuera de los límites. Usando la primera derivación (índice 0).")
-                lead_index = 0
-
-        except Exception as e_header:
-            print(f"Advertencia: No se pudo leer el archivo .hea: {e_header}. Usando la segunda derivación por defecto.")
-            lead_index = 1
-        
-        # Extraer solo la derivación seleccionada (asumiendo que las filas son derivaciones)
-        if signal_data.ndim == 2:
-            selected_lead_data = signal_data[lead_index, :]
-        else:
-            selected_lead_data = signal_data
+            raise ValueError("Los datos de señal no pudieron ser leídos o están vacíos.")
 
         # Aplanar los datos para asegurar que sea una sola columna
-        signal_data_flat = selected_lead_data.flatten()
+        signal_data_flat = signal_data.flatten()
 
         # Definir la ruta para el archivo CSV de salida
         csv_filename = f"{file_base_name}.csv"
@@ -373,17 +369,13 @@ def format_ecg_to_csv():
 
     except Exception as e:
         print(f"Error al formatear archivo WFDB a CSV: {e}")
-        # Asegúrate de limpiar el directorio temporal si ocurre un error
         if os.path.exists(temp_wfdb_dir):
             shutil.rmtree(temp_wfdb_dir)
-        # Se envía un mensaje de error más detallado al frontend
-        return jsonify({'error': f'Error al procesar los archivos WFDB: {str(e)}. Asegúrate de que ambos archivos (.hea y .mat) sean válidos y correspondan a un mismo registro.'}), 500
+        return jsonify({'error': f'Error al procesar los archivos WFDB: {str(e)}. Asegúrate de que los archivos sean válidos y correspondan a un mismo registro.'}), 500
     finally:
-        # Limpia los archivos temporales WFDB (la carpeta completa)
         try:
             if os.path.exists(temp_wfdb_dir):
-                shutil.rmtree(temp_wfdb_dir) # Elimina la carpeta temporal y su contenido
-            # Flask gestiona la eliminación del archivo CSV una vez que send_file completa la respuesta.
+                shutil.rmtree(temp_wfdb_dir)
         except OSError as e:
             print(f"Error al eliminar archivos temporales: {e}")
 
