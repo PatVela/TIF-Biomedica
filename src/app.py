@@ -238,9 +238,8 @@ def download_ecg_results(record_name_base):
 @app.route('/format_ecg', methods=['POST'])
 def format_ecg_to_csv():
     """
-    Recibe archivos WFDB (.mat y .hea), los lee y convierte a formato CSV
-    utilizando la lógica de carga de datos similar a predict.py.
-    Luego envía el archivo CSV resultante para su descarga.
+    Recibe archivos WFDB (.mat y .hea), los lee, extrae la derivación MLII (o la segunda),
+    y convierte los datos a formato CSV. Luego envía el archivo resultante para su descarga.
     """
     # Usamos request.files.getlist para obtener todos los archivos con el mismo nombre de campo
     uploaded_files = request.files.getlist('ecg_file_to_format')
@@ -309,56 +308,56 @@ def format_ecg_to_csv():
         if signal_data is None or signal_data.size == 0:
             raise ValueError("Los datos de señal no pudieron ser leídos o están vacíos en el archivo .mat.")
 
-        # Leer el encabezado WFDB para obtener los nombres de las señales y la frecuencia de muestreo
+        # Leer el encabezado WFDB para obtener la frecuencia de muestreo y los nombres de las derivaciones
         record_name_only = os.path.splitext(os.path.basename(hea_file_path))[0]
-        record_dir_only = os.path.dirname(hea_file_path) 
+        record_dir_only = os.path.dirname(hea_file_path)
         
         sampling_rate = None
-        signal_names = [] # Inicializar para asegurar que siempre sea una lista
+        lead_index = 1  # Por defecto, la segunda derivación (índice 1)
+
         try:
             record_header = wfdb.rdheader(os.path.join(record_dir_only, record_name_only))
-            signal_names = record_header.sig_name if hasattr(record_header, 'sig_name') and record_header.sig_name else [] # Obtener nombres de señal
             sampling_rate = record_header.fs if hasattr(record_header, 'fs') else None
+            
+            # Intentar encontrar la derivación MLII
+            if hasattr(record_header, 'sig_name'):
+                signal_names = record_header.sig_name
+                try:
+                    # Buscar 'MLII' (insensible a mayúsculas/minúsculas)
+                    lead_index = [name.upper() for name in signal_names].index('MLII')
+                    print(f"Derivación 'MLII' encontrada en el índice {lead_index}.")
+                except ValueError:
+                    print("Advertencia: No se encontró la derivación 'MLII'. Usando la segunda derivación (índice 1) por defecto.")
+                    lead_index = 1
+            
+            # Asegurarse de que el índice de la derivación sea válido
+            if lead_index >= signal_data.shape[0]:
+                print(f"Error: El índice de la derivación ({lead_index}) está fuera de los límites. Usando la primera derivación (índice 0).")
+                lead_index = 0
+
         except Exception as e_header:
-            print(f"Advertencia: No se pudieron leer los nombres de las señales o la frecuencia de muestreo del archivo .hea. Error: {e_header}")
-            # Si la lectura del encabezado falla, los nombres se inferirán más adelante.
-
-        # --- Importante: Asegurar que signal_data tenga la forma (muestras, canales) para Pandas ---
-        # Si signal_data es 2D y el número de filas coincide con el número de nombres de señal (indicando (canales, muestras))
+            print(f"Advertencia: No se pudo leer el archivo .hea: {e_header}. Usando la segunda derivación por defecto.")
+            lead_index = 1
+        
+        # Extraer solo la derivación seleccionada (asumiendo que las filas son derivaciones)
         if signal_data.ndim == 2:
-            n_rows, n_cols = signal_data.shape
-            # Si el número de filas coincide con los nombres de señal Y el número de columnas es mucho mayor,
-            # es probable que los datos estén en (canales, muestras)
-            if len(signal_names) > 0 and len(signal_names) == n_rows and n_cols > n_rows:
-                signal_data = signal_data.T # Transponer a (muestras, canales)
-                # Si los nombres de las señales no se leyeron robustamente, actualizarlos si es necesario
-                # (aunque la lógica de wfdb.rdheader debería ser robusta si hay nombres de señal)
-                # Esto es más bien una doble verificación o un fallback.
-                if not (hasattr(record_header, 'sig_name') and record_header.sig_name):
-                    signal_names = [f'signal_{i+1}' for i in range(n_rows)] # Usar el conteo original de filas como conteo de canales
+            selected_lead_data = signal_data[lead_index, :]
+        else:
+            selected_lead_data = signal_data
 
-            # Si signal_names está vacío porque la lectura del encabezado falló, o si el conteo no coincide
-            if not signal_names or len(signal_names) != signal_data.shape[1]:
-                # Generar nombres de señal por defecto basados en el número de columnas actual
-                signal_names = [f'signal_{i+1}' for i in range(signal_data.shape[1])]
-        elif signal_data.ndim == 1:
-            # Para una señal 1D, asegurarse de que sea (N, 1) y tener un nombre de señal
-            signal_data = signal_data.reshape(-1, 1)
-            signal_names = ['signal_1'] # Nombre por defecto para una señal única
-
-        # Crear DataFrame
-        df = pd.DataFrame(signal_data, columns=signal_names)
+        # Aplanar los datos para asegurar que sea una sola columna
+        signal_data_flat = selected_lead_data.flatten()
 
         # Definir la ruta para el archivo CSV de salida
-        csv_filename = f"{file_base_name}_formatted.csv"
-        csv_file_path = os.path.join(upload_dir, csv_filename) # Guarda el CSV en la carpeta principal de uploads
+        csv_filename = f"{file_base_name}.csv"
+        csv_file_path = os.path.join(upload_dir, csv_filename)
 
-        # MANEJO PARA INCLUIR EL SAMPLING RATE COMO PRIMERA LÍNEA
+        # Escribir los datos en el archivo CSV, un valor por línea
         with open(csv_file_path, 'w', newline='') as f:
             if sampling_rate is not None:
-                f.write(str(sampling_rate) + '\n') # Escribe el sampling rate en la primera línea
-            # Escribe el DataFrame a partir de la segunda línea, incluyendo los encabezados de columna
-            df.to_csv(f, index=False, header=True) # header=True para escribir los nombres de las señales como encabezados
+                f.write(str(sampling_rate) + '\n')
+            # Usar pandas para escribir la única columna sin encabezado ni índice
+            pd.DataFrame(signal_data_flat).to_csv(f, index=False, header=False)
 
         # Enviar el archivo CSV para descarga
         return send_file(csv_file_path, as_attachment=True, download_name=csv_filename)
@@ -376,7 +375,6 @@ def format_ecg_to_csv():
             if os.path.exists(temp_wfdb_dir):
                 shutil.rmtree(temp_wfdb_dir) # Elimina la carpeta temporal y su contenido
             # Flask gestiona la eliminación del archivo CSV una vez que send_file completa la respuesta.
-            # No es necesario eliminar csv_file_path aquí directamente.
         except OSError as e:
             print(f"Error al eliminar archivos temporales: {e}")
 
@@ -386,4 +384,3 @@ if __name__ == '__main__':
     # Servir la aplicación con gevent
     http_server = WSGIServer(('0.0.0.0', 5002), app)
     http_server.serve_forever()
-

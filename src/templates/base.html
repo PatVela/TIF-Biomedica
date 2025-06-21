@@ -108,34 +108,35 @@
             margin: 0 auto;
         }
 
-        /* Estilos para el modal de instrucciones */
-        #instructionsModal .modal-content {
+        /* Estilos para los modales */
+        .modal-content {
             background-color: #2d3748; /* Fondo oscuro para el contenido del modal */
             color: #e2e8f0; /* Texto claro */
         }
-        #instructionsModal .modal-header {
+        .modal-header {
             background-color: #34495e; /* Fondo más oscuro para el encabezado del modal */
             border-bottom: 1px solid #2c3e50;
         }
-        #instructionsModal .modal-title {
+        .modal-title {
             color: #ecf0f1;
         }
-        #instructionsModal .close {
+        .close {
             color: #ecf0f1;
             opacity: 1;
         }
-        #instructionsModal .close:hover {
+        .close:hover {
             color: #67e8f9;
         }
-        #instructionsModal .modal-body {
+        .modal-body {
             background-color: #2d3748; /* Fondo oscuro para el cuerpo del modal */
         }
-        #instructionsModal .modal-body p,
-        #instructionsModal .modal-body ol,
-        #instructionsModal .modal-body li {
+        .modal-body p,
+        .modal-body ol,
+        .modal-body li,
+        .modal-body ul {
             color: #e2e8f0; /* Asegura que el texto sea claro */
         }
-        #instructionsModal .modal-footer {
+        .modal-footer {
             background-color: #34495e; /* Fondo más oscuro para el pie del modal */
             border-top: 1px solid #2c3e50;
         }
@@ -168,6 +169,9 @@
                 <li class="nav-item">
                     <a class="nav-link" href="#" data-toggle="modal" data-target="#instructionsModal">Instrucciones</a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-toggle="modal" data-target="#modelInfoModal">Información del Modelo</a>
+                </li>
             </ul>
         </div>
     </nav>
@@ -190,16 +194,54 @@
             <p>Siga estos pasos para utilizar el clasificador de ECG:</p>
             <ol>
               <li>Seleccione un archivo de datos de ECG en formato <strong>.csv</strong>. Asegúrese de que el archivo no exceda los 5 MB.</li>
-              <li>Haga clic en "Predecir!" para iniciar el análisis.</li>
-              <li>Los resultados se mostrarán en dos tablas: un resumen general y un detalle por cada segmento analizado.</li>
-              <!-- Nueva instrucción para los botones de gráficos -->
-              <li>Utilice los botones "Mostrar ECG Completo" y "Mostrar ECGs de Segmentos" para visualizar los gráficos generados.</li>
+              <li>Haga clic en "Predecir Ahora!" para iniciar el análisis.</li>
+              <li>Los resultados se mostrarán en tablas detalladas.</li>
+              <li>En caso de no tener archivo .csv, use la segunda opción de carga y el botón "Formatear ECG a CSV para convertir archivos .mat y .hba (subirlos al mismo tiempo)".</li>
             </ol>
             <hr>
             <!-- Nuevo Easter Egg: Click en esta parte para un meme aleatorio -->
             <a href="#" id="devInfo" style="text-decoration: none;">
                 <p class="text-muted small">Desarrollado por JPDV y EMOG.</p>
             </a>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Información del Modelo -->
+    <div class="modal fade" id="modelInfoModal" tabindex="-1" role="dialog" aria-labelledby="modelInfoModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modelInfoModalLabel">Información del Modelo</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <h5>Arquitectura del Modelo</h5>
+            <p>El modelo utiliza una <strong>Red Neuronal Convolucional (CNN) de tipo ResNet con 15 capas convolucionales</strong>, especializada para el análisis de series temporales de ECG.</p>
+            <hr style="border-top: 1px solid #2c3e50;">
+            <h5>Dataset de Entrenamiento</h5>
+            <p>El modelo fue entrenado con el dataset encontrado en <strong>PhysioNet/Computing in Cardiology Challenge 2017</strong>.</p>
+            <ul>
+                <li><strong>Registros totales:</strong> 8,528</li>
+                <li><strong>Derivación usada:</strong> MLII (o segunda derivación por defecto)</li>
+            </ul>
+            <hr style="border-top: 1px solid #2c3e50;">
+            <h5>Métricas de Rendimiento (Ejemplo)</h5>
+            <p>Las métricas aquí mostradas son representativas para este tipo de arquitectura y pueden variar.</p>
+            <ul>
+                <li><strong>Accuracy:</strong> ~96%</li>
+                <li><strong>F1-score (promedio):</strong> ~0.82</li>
+            </ul>
+            <h6>Matriz de Confusión (Ejemplo sin normalizar)</h6>
+            <p>La siguiente es una imagen representativa de una matriz de confusión para este modelo.</p>
+            <img src="https://placehold.co/600x400/2d3748/ecf0f1?text=Matriz+de+Confusion%0A(Ejemplo)" alt="Ejemplo de Matriz de Confusión" class="img-fluid rounded" style="border: 1px solid #34495e; display: block; margin: auto;">
+            <p class="small text-muted mt-1 text-center">Las filas representan la clase verdadera y las columnas la clase predicha.</p>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>

@@ -391,7 +391,7 @@ $(document).ready(function () {
                     data.average_probabilities.forEach(function(avg_prob, index) {
                         const row = $('<tr>').appendTo(currentAveragePredictionTableBody);
                         row.append(`<td>${classesMap[index]}</td>`);
-                        row.append(`<td>${avg_prob.toFixed(7)}%</td>`);
+                        row.append(`<td>${(avg_prob * 100).toFixed(7)}%</td>`);
                     });
                 } else {
                     console.warn('Advertencia: No se encontraron probabilidades promedio en la respuesta.');

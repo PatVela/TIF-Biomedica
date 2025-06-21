@@ -309,4 +309,3 @@ def uploadedData(filename, csvbool = True):
         # como se espera (asumo que se refiere a los datos sin formato especial).
         # Aquí puedes añadir la lógica original o levantar un error si no es una ruta esperada.
         raise NotImplementedError("uploadedData con csvbool=False no está completamente implementada para este caso.")
-
