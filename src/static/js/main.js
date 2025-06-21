@@ -30,8 +30,18 @@ $(document).ready(function () {
     // --- EASTER EGG 1: Funcionalidad de Rickroll al hacer clic en la fecha del footer ---
     footerDate.on('click', function(e) {
         e.preventDefault(); 
-        window.open('https://www.youtube.com/watch?v=dQw4w9WgXcQ', '_blank'); 
+        const youtubeId = 'dQw4w9WgXcQ'; // ID del video de Rick Astley
+        const youtubeEmbedUrl = `https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0`; // autoplay=1 para que inicie al abrir, rel=0 para videos relacionados del mismo canal
+        
+        $('#rickrollVideo').attr('src', youtubeEmbedUrl); // Asigna la URL al iframe
+        $('#rickrollModal').modal('show'); // Abre el modal
     });
+
+    // Detener el video cuando el modal de rickroll se cierra
+    $('#rickrollModal').on('hide.bs.modal', function () {
+        $('#rickrollVideo').attr('src', ''); // Elimina la URL para detener el video
+    });
+
 
     // --- EASTER EGG 2: Meme aleatorio al hacer clic en "Desarrollado por JPDV y EMOG." ---
     const memeUrls = [
