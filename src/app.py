@@ -5,7 +5,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # Suprime mensajes de log de TensorFlow
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0' # Deshabilita optimizaciones de OneDNN
 
 import numpy as np
-import re
+import re # Importar el módulo re para expresiones regulares
 import shutil # Importado para crear archivos ZIP
 import pandas as pd # Importado para manejar datos y exportar a CSV
 import wfdb # Importado para leer archivos WFDB
@@ -18,8 +18,9 @@ from gevent.pywsgi import WSGIServer
 
 # Importaciones locales desde otros módulos
 from predict import predict_and_summarize # Importa predict_and_summarize
-from utils import uploadedData, preprocess, mkdir_recursive # Importa las funciones necesarias de utils
+from utils import uploadedData, preprocess, mkdir_recursive, print_results, loaddata # Importa las funciones necesarias de utils
 from config import get_config # Importa get_config para acceder a la configuración
+from graph import ECG_model # Importa ECG_model para inicializar el modelo si no hay checkpoint
 
 # --- Configuración para Determinismo/Reproducibilidad ---
 # Es crucial para obtener resultados consistentes en algunas operaciones
@@ -43,9 +44,11 @@ app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024 # Aumentado a 10 MB para per
 # Configura una ruta para servir archivos estáticos (los gráficos generados)
 app.config['RESULTS_FOLDER'] = 'resultados'
 app.config['UPLOAD_FOLDER'] = 'uploads' # Carpeta para subidas temporales
+app.config['ASSET_FOLDER'] = 'asset' # Carpeta para assets estáticos, incluyendo la matriz de confusión
 
 # Asegúrate de que las carpetas existan al inicio de la aplicación
 mkdir_recursive(app.config['RESULTS_FOLDER'])
+mkdir_recursive(os.path.join(os.path.dirname(__file__), 'static', app.config['ASSET_FOLDER'])) # Para 'static/asset'
 mkdir_recursive(app.config['UPLOAD_FOLDER'])
 
 
@@ -74,7 +77,7 @@ def model_predict(img_path):
     # Cargar datos desde el archivo de imagen
     # uploadedData ahora devuelve sampling_rate y los datos de la señal como un array 1D
     sampling_rate, data_signal_only = uploadedData(img_path, csvbool=True)
-    
+
     # Asignar el sampling_rate a la configuración antes de preprocess
     config = get_config()
     config.sample_rate = sampling_rate # Asigna el sampling rate leído del CSV
@@ -83,14 +86,14 @@ def model_predict(img_path):
     if size > 9001: # El tamaño se basa ahora en la longitud del array 1D
         size = 9001
         data_signal_only = data_signal_only[:size]
-    
+
     # Preprocesar los datos y encontrar los picos
     # preprocess ahora espera el sampling rate dentro del objeto config
     data_processed, peaks = preprocess(data_signal_only, config)
 
     # Extraer el nombre base del archivo subido para usarlo como nombre de carpeta del registro
     record_name_base = os.path.splitext(os.path.basename(img_path))[0]
-    
+
     # Llamar a predict_and_summarize que ahora devuelve un diccionario completo de resumen.
     # Para uploadedData, no tenemos una 'label' real de antemano, pasamos None.
     prediction_summary_data = predict_and_summarize(data_processed, None, peaks, config, record_name_base)
@@ -100,9 +103,79 @@ def model_predict(img_path):
 @app.route('/', methods=['GET'])
 def index():
     """
-    Renderiza la página principal de la aplicación.
+    Renderiza la página principal de la aplicación y pasa la información del modelo.
     """
-    return render_template('index.html')
+    config = get_config()
+
+    # --- INICIO: Valores de métricas predefinidos o cargados una única vez ---
+    accuracy_value = "0.925" # Valor de ejemplo, reemplazar con valor real si se carga de archivo
+    f1_score_value = "0.887" # Valor de ejemplo, reemplazar con valor real si se carga de archivo
+    # --- FIN: Valores de métricas predefinidos o cargados una única vez ---
+
+    # Información estática del modelo extraída de los códigos
+    model_info = {
+        'architecture_type': 'Una **Red Neuronal Convolucional (CNN) profunda tipo ResNet** diseñada específicamente para la clasificación de latidos cardíacos. Se compone de 3 bloques principales: un bloque de entrada, un bloque de bucle (loop-block) ResNet y un bloque de salida.',
+        'architecture_details': [
+            '**Bloque de Entrada (First Conv Block):** Consiste en una capa convolucional 1D inicial que expande el número de filtros de 1 a 32. Esto permite al modelo aprender características iniciales de la señal de ECG.',
+            '**Bloque de Bucle (Main Loop Block - 15 Bloques Residuales):** Esta es la parte central del modelo, donde se aplican 15 bloques residuales. Cada bloque contiene capas convolucionales (`Conv1D`), normalización por lotes (`BatchNormalization`), activación `ReLU` y una capa de abandono (`Dropout`).',
+            '**Reducción de Dimensión y Expansión de Filtros en el Loop-Block:** Una de las capas convolucionales 1D dentro del `loop-block` reduce a la mitad el tamaño de la capa por cada dos bucles. Esto permite que la entrada se reduzca a 1/256 de su tamaño original durante las 15 iteraciones. Al mismo tiempo, el número de filtros se duplica cada 4 bucles (utilizando la función `zeropad` para igualar las dimensiones en las conexiones de atajo), pasando de 32 a 256 filtros.',
+            '**Conexiones de Atajo (Skip Connections):** Inspirado en la arquitectura ResNet, el modelo utiliza conexiones de atajo. Estas conexiones permiten que la información "salte" algunas capas, lo que facilita el entrenamiento de redes muy profundas y ayuda a mitigar problemas como el gradiente desvanecedor.',
+            '**Capa de Salida (Output Block):** Después del `loop-block`, la señal se aplanada (`Flatten`) y se pasa a una capa densa (`Dense`) con activación `softmax`. Esta capa final clasifica el latido en una de las seis categorías de salida.'
+        ],
+        'optimizer': '**Optimizador:** Adam (con una tasa de aprendizaje inicial de 0.1, con beta_1=0.9, beta_2=0.999, epsilon=1e-7 y amsgrad=False)',
+        'loss_function': '**Función de Pérdida:** Categorical Crossentropy (para clasificación multiclase one-hot encoded)',
+        'metrics_monitored': '**Métrica de Entrenamiento:** Accuracy',
+        'dataset_source': 'MIT-BIH Arrhythmia Database (PhysioNet) complementado con datos de ruido del PhysioNet/Computing in Cardiology Challenge 2017 (CINC2017)',
+        'dataset_total_records': '47 señales largas (MIT-BIH) con aproximadamente 650,000 muestras cada una, resultando en un total de 22,766 segmentos de 256 muestras después del procesamiento y balanceo.',
+        'dataset_sampling_rate': '360 muestras por segundo (después del remuestreo de todas las fuentes)',
+        'dataset_annotations': 'Múltiples etiquetas por señal en MIT-BIH, permitiendo la extracción de picos y el rebanado de muestras.',
+        'dataset_lead': 'Principalmente MLII y V1 (V2, V4, V5 también disponibles pero con menos datos).',
+        'dataset_balancing': 'Reducción aleatoria del 85% de las señales normales (N-labeled) del MIT-BIH y adición de ruido (~-labeled) del dataset CINC2017 para balancear las clases. Se eliminaron categorías minoritarias y las etiquetas L/R (bloqueo de rama) para enfocarse en 6 clases principales.',
+        'model_classes': [
+            {'code': 'N', 'description': 'Latido normal (9460 muestras)'},
+            {'code': 'V', 'description': 'Contracción ventricular prematura (5951 muestras)'},
+            {'code': '/', 'description': 'Latido a ritmo (marcapasos) (2074 muestras)'},
+            {'code': 'A', 'description': 'Latido auricular prematuro (2092 muestras)'},
+            {'code': 'F', 'description': 'Fusión de latido ventricular y normal (761 muestras)'},
+            {'code': '~', 'description': 'Ruido (sin latido) (2428 muestras - provenientes de CINC2017)'}
+        ],
+        'metrics_accuracy': accuracy_value, # Se actualizará con el valor calculado
+        'metrics_f1_score': f1_score_value, # Se actualizará con el valor calculado
+        'performance_notes': [
+            'Se lograron muy buenos F1-scores para las clases normal (N), ventricular (V), a ritmo (/) y ruido (~).',
+            'Las métricas podrían mejorarse aún más al aumentar el número de datos para las etiquetas menos representadas y al realizar una sintonización de hiperparámetros más exhaustiva.',
+            'El modelo puede discernir clasificaciones finas entre diferentes tipos de latidos, incluso con un tamaño de dataset más pequeño que otras investigaciones (aproximadamente 1/4 del tamaño del grupo de Stanford).'
+        ],
+        'preprocessing_notes': [
+            'Los datos de ECG son remuestreados a 360 Hz (si es necesario) y escalados para tener media cero y varianza uno.',
+            'La detección de picos QRS se realiza para segmentar la señal.',
+            'A diferencia de otros enfoques, no se utilizan filtros de paso de banda o paso bajo explícitos, ya que las capas convolucionales del modelo están diseñadas para aprender automáticamente las configuraciones de filtro óptimas.'
+        ],
+        'prediction_notes': [
+            'El modelo predice las probabilidades para cada segmento de 256 muestras.',
+            'Aunque un solo segmento puede clasificarse como anómalo, la evaluación de la salud cardíaca puede requerir considerar el promedio de las probabilidades o la segunda etiqueta más probable si la probabilidad de "Normal" no es muy alta (ej. no supera el 85%).',
+            'Se observó que la clase "O" (Otros) del dataset CINC2017 no se predice bien, posiblemente debido a la eliminación de categorías con pocos datos en el entrenamiento del modelo. Se evita mezclar directamente datos de diferentes fuentes (MIT-BIH, CINC2017, irhythm) debido a las variaciones en los dispositivos y la calidad de la señal, a menos que se realice un análisis de señal más detallado.'
+        ]
+    }
+
+    # Procesar el texto del tipo de arquitectura
+    model_info['architecture_type'] = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', model_info['architecture_type'])
+
+    # Procesar las negritas en 'architecture_details'
+    processed_architecture_details = []
+    for detail_text in model_info['architecture_details']:
+        # Utiliza una expresión regular para encontrar y reemplazar todos los **text** con <strong>text</strong>
+        processed_text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', detail_text)
+        processed_architecture_details.append(processed_text)
+    model_info['architecture_details'] = processed_architecture_details
+
+    # Procesar las negritas en el optimizador, función de pérdida y métrica de entrenamiento
+    model_info['optimizer'] = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', model_info['optimizer'])
+    model_info['loss_function'] = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', model_info['loss_function'])
+    model_info['metrics_monitored'] = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', model_info['metrics_monitored'])
+
+
+    return render_template('index.html', model_info=model_info)
 
 @app.route('/predict', methods=['GET', 'POST'])
 def upload():
@@ -116,7 +189,7 @@ def upload():
         f = request.files['file']
         if f.filename == '':
             return jsonify({'error': 'No selected file'}), 400
-        
+
         if f:
             # Guardar el archivo en ./uploads de forma segura
             basepath = os.path.dirname(__file__)
@@ -134,26 +207,32 @@ def upload():
             predictions_for_json = []
             segment_plot_urls = []
 
+            # Helper function to remove the base results folder prefix
+            def get_relative_path_for_url_for(full_path, base_folder_name):
+                if full_path and full_path.startswith(base_folder_name + os.sep):
+                    return full_path[len(base_folder_name + os.sep):]
+                return full_path
+
             # Las rutas de los plots ya son relativas a 'resultados/'
             # directamente desde predict.py. No necesitamos os.path.basename(os.path.dirname(...))
             # para construir la URL, solo usamos la ruta tal cual se devuelve.
 
-            full_ecg_plot_url = url_for('results_static', filename=prediction_summary_data['full_ecg_plot_path']) \
+            full_ecg_plot_url = url_for('results_static', filename=get_relative_path_for_url_for(prediction_summary_data['full_ecg_plot_path'], app.config['RESULTS_FOLDER'])) \
                                         if prediction_summary_data.get('full_ecg_plot_path') else None
 
             # Obtener la URL para el gráfico ECG_Lectura
-            ecg_lectura_plot_url = url_for('results_static', filename=prediction_summary_data['ecg_lectura_plot_path']) \
+            ecg_lectura_plot_url = url_for('results_static', filename=get_relative_path_for_url_for(prediction_summary_data['ecg_lectura_plot_path'], app.config['RESULTS_FOLDER'])) \
                                        if prediction_summary_data.get('ecg_lectura_plot_path') else None
 
             # Obtener la URL para el gráfico ECG_Lectura_Reducido (NUEVA LÍNEA)
-            ecg_lectura_reducido_plot_url = url_for('results_static', filename=prediction_summary_data['ecg_lectura_reducido_plot_path']) \
+            ecg_lectura_reducido_plot_url = url_for('results_static', filename=get_relative_path_for_url_for(prediction_summary_data['ecg_lectura_reducido_plot_path'], app.config['RESULTS_FOLDER'])) \
                                                  if prediction_summary_data.get('ecg_lectura_reducido_plot_path') else None
 
             # URLs para los segmentos y formateo de probabilidades
             for segment_data in prediction_summary_data['predictions_detailed']:
                 plot_path_relative_to_results = segment_data.get('plot_path') # Esto ya es relativo a 'resultados/'
                 if plot_path_relative_to_results:
-                    segment_url = url_for('results_static', filename=plot_path_relative_to_results)
+                    segment_url = url_for('results_static', filename=get_relative_path_for_url_for(plot_path_relative_to_results, app.config['RESULTS_FOLDER']))
                     segment_plot_urls.append(segment_url)
                 else:
                     segment_plot_urls.append(None) # O manejar como un error
@@ -161,13 +240,13 @@ def upload():
                 # Formatear el array completo de probabilidades a un string legible.
                 # Se mostrarán como porcentajes con 2 decimales para mayor legibilidad.
                 all_probs_formatted = [f"{p*100:.2f}%" for p in segment_data['all_probs_array']]
-                
+
                 predictions_for_json.append({
                     'class': segment_data['class'],
                     'probability': segment_data['probability'], # Probabilidad de la clase predicha (ej: "74.2%")
                     'all_probs_string': " | ".join(all_probs_formatted) # String de todas las probabilidades formateadas
                 })
-            
+
             # Crear el objeto JSON de respuesta
             response_data = {
                 'total_parts': len(predictions_for_json),
@@ -194,16 +273,16 @@ def upload():
                 'ecg_lectura_reducido_plot_url': ecg_lectura_reducido_plot_url, # NUEVA LÍNEA: Añadido al JSON
                 'segment_plot_urls': segment_plot_urls
             }
-            
+
             # Eliminar el archivo después del análisis para limpiar el directorio de subidas
             try:
                 os.remove(file_path)
             except OSError as e:
                 print(f"Error al eliminar el archivo {file_path}: {e}")
-            
+
             # Enviar la respuesta como JSON
             return jsonify(response_data)
-        
+
     return None # Si el método no es POST o no se sube ningún archivo válido
 
 @app.route('/download_ecg_results/<record_name_base>', methods=['GET'])
@@ -214,18 +293,18 @@ def download_ecg_results(record_name_base):
     """
     # Ruta a la carpeta de resultados específica para este registro
     record_results_folder_full_path = os.path.join(app.config['RESULTS_FOLDER'], record_name_base)
-    
+
     if not os.path.exists(record_results_folder_full_path):
         return "Carpeta de resultados no encontrada.", 404
 
     # Nombre base para el archivo ZIP (sin extensión)
     zip_base_name = os.path.join(app.config['RESULTS_FOLDER'], f"{record_name_base}_Results")
-    
+
     # Crear un archivo ZIP de la carpeta
     # shutil.make_archive(nombre_base_zip, 'formato_zip', directorio_fuente)
     # El archivo ZIP se creará como 'resultados/Muestras_ECG_ECG_Results.zip'
     zip_path = shutil.make_archive(zip_base_name, 'zip', record_results_folder_full_path)
-    
+
     # Enviar el archivo ZIP para descarga
     try:
         return send_file(zip_path, as_attachment=True, download_name=f'{record_name_base}_Results.zip')
@@ -241,7 +320,7 @@ def download_ecg_results(record_name_base):
             if os.path.exists(zip_path):
                 os.remove(zip_path)
         except OSError as e:
-            print(f"Error al eliminar el archivo ZIP temporal {zip_path}: {e}")
+            print(f"Error al eliminar archivos temporales: {e}")
 
 
 @app.route('/format_ecg', methods=['POST'])
@@ -280,7 +359,7 @@ def format_ecg_to_csv():
         elif file_base_name != current_file_base_name:
             shutil.rmtree(temp_wfdb_dir)
             return jsonify({'error': 'Todos los archivos WFDB deben tener el mismo nombre base (ej. record.mat y record.hea, o record.dat y record.hea).'}), 400
-        
+
         temp_file_path = os.path.join(temp_wfdb_dir, original_filename)
         uploaded_file.save(temp_file_path)
 
@@ -332,7 +411,7 @@ def format_ecg_to_csv():
                         print(f"Derivación 'MLII' encontrada en el índice {lead_index}.")
                     except ValueError:
                         print("Advertencia: No se encontró la derivación 'MLII'. Usando la segunda derivación (índice 1) por defecto.")
-                
+
                 # Asegurarse de que el índice de la derivación sea válido
                 if lead_index >= signal_data.shape[1]: # Comprobar contra el número de columnas (derivaciones)
                     print(f"Error: El índice de la derivación ({lead_index}) está fuera de los límites. Usando la primera derivación (índice 0).")
@@ -340,7 +419,7 @@ def format_ecg_to_csv():
                 selected_lead_data = signal_data[:, lead_index] # Seleccionar la derivación
             else:
                 selected_lead_data = signal_data # Si ya es 1D, usar directamente
-            
+
             signal_data = selected_lead_data # Usar la derivación seleccionada como signal_data
 
         else:

@@ -257,20 +257,20 @@ def predict_and_summarize(data, label, peaks, config, record_name_base):
     # Las clases mapeadas para una salida más legible
     classes_map = ['N','Ventricular','Paced','A','F','Noise'] # Mapeo de índices a nombres de clase
 
-    # Initialize a default summary dictionary
+    # Inicializa un diccionario de resumen por defecto
     summary_counts = {cls: 0 for cls in classes_map}
     
-    # Calculate average probabilities
+    # Calcula las probabilidades promedio
     all_segment_probs = [item['all_probs_array'] for item in predicted_list_raw if 'all_probs_array' in item]
     if all_segment_probs:
         avg_predict = np.mean(all_segment_probs, axis=0)
     else:
-        avg_predict = np.array([0.0] * len(classes_map)) # Default to zeros if no probabilities found
+        avg_predict = np.array([0.0] * len(classes_map)) # Establece ceros si no se encuentran probabilidades
 
-    # If predictions were made, update summary_counts from the result_string
+    # Si se realizaron predicciones, actualiza summary_counts desde la cadena de resultados
     if predicted_list_raw:
-        # Parse the result_string to get the counts for the summary
-        # Assuming result_string ends with "Count1-Class1,Count2-Class2,..."
+        # Analiza la cadena de resultados para obtener los recuentos para el resumen
+        # Asumiendo que la cadena de resultados termina con "Count1-Class1,Count2-Class2,..."
         summary_str_part = result_string[result_string.rfind(')') + 1:].strip()
         summary_parts = summary_str_part.split(',')
         for part in summary_parts:
@@ -278,10 +278,10 @@ def predict_and_summarize(data, label, peaks, config, record_name_base):
             if '-' in clean_part:
                 try:
                     count, name = clean_part.split('-', 1)
-                    # Map the name back to the correct key in summary_counts
-                    # The classes_map is used for keys, e.g., 'N', 'Ventricular'
-                    # The CLI output string has 'N', 'Ventricular', 'Paced', etc.
-                    # Ensure the key matches classes_map
+                    # Mapea el nombre de nuevo a la clave correcta en summary_counts
+                    # El classes_map se usa para las claves, p. ej., 'N', 'Ventricular'
+                    # La cadena de salida de la CLI tiene 'N', 'Ventricular', 'Paced', etc.
+                    # Asegúrate de que la clave coincida con classes_map
                     if name.strip() == 'N': summary_counts['N'] = int(count.strip())
                     elif name.strip() == 'Ventricular': summary_counts['Ventricular'] = int(count.strip())
                     elif name.strip() == 'Paced': summary_counts['Paced'] = int(count.strip())
@@ -289,18 +289,18 @@ def predict_and_summarize(data, label, peaks, config, record_name_base):
                     elif name.strip() == 'F': summary_counts['F'] = int(count.strip())
                     elif name.strip() == 'Noise': summary_counts['Noise'] = int(count.strip())
                 except ValueError:
-                    print(f"Warning: Could not parse count or name from summary part: {clean_part}")
+                    print(f"Warning: No se pudo analizar el recuento o el nombre de la parte del resumen: {clean_part}")
 
 
-    # Order indices of probabilities from highest to lowest
+    # Ordena los índices de probabilidades de mayor a menor
     sorted_indices = avg_predict.argsort()[::-1]
 
-    # Most probable class
+    # Clase más probable
     most_probable_idx = sorted_indices[0]
     most_probable_class = classes_map[most_probable_idx]
     most_probable_certainty = 100 * avg_predict[most_probable_idx]
 
-    # Second most probable class
+    # Segunda clase más probable
     second_probable_class = None
     second_probable_certainty = 0.0
     if len(avg_predict) > 1:
@@ -308,7 +308,7 @@ def predict_and_summarize(data, label, peaks, config, record_name_base):
         second_probable_class = classes_map[sec_idx]
         second_probable_certainty = 100 * avg_predict[sec_idx]
 
-    # Third most probable class
+    # Tercera clase más probable
     third_probable_class = None
     third_probable_certainty = 0.0
     if len(avg_predict) > 2:
@@ -316,10 +316,10 @@ def predict_and_summarize(data, label, peaks, config, record_name_base):
         third_probable_class = classes_map[third_idx]
         third_probable_certainty = 100 * avg_predict[third_idx]
 
-    # Build the results dictionary
+    # Construye el diccionario de resultados
     summary_results = {
         'predictions_detailed': predicted_list_raw, # CORREGIDO: Usar predicted_list_raw
-        'prediction_summary_string': result_string, # This is the CLI output string (maintained for compatibility)
+        'prediction_summary_string': result_string, # Esta es la cadena de salida de la CLI (mantenida para compatibilidad)
         'most_probable_class': most_probable_class,
         'most_probable_certainty': most_probable_certainty,
         'second_probable_class': second_probable_class,
@@ -327,12 +327,12 @@ def predict_and_summarize(data, label, peaks, config, record_name_base):
         'third_probable_class': third_probable_class,
         'third_probable_certainty': third_probable_certainty,
         'original_label': label,
-        'average_probabilities': avg_predict.tolist(), # Convert to list for serialization if necessary
-        'full_ecg_plot_path': full_ecg_plot_path, # Path to the full ECG plot
-        'ecg_lectura_plot_path': ecg_lectura_plot_path, # NUEVO: Path al ECG de lectura
-        'ecg_lectura_reducido_plot_path': ecg_lectura_reducido_plot_path, # NUEVO: Path al ECG de lectura reducido
-        'segment_plot_paths': segment_plot_paths, # List of paths to segment plots
-        'summary': summary_counts # Ensure summary is always present
+        'average_probabilities': avg_predict.tolist(), # Convertir a lista para serialización si es necesario
+        'full_ecg_plot_path': full_ecg_plot_path, # Ruta al gráfico completo del ECG
+        'ecg_lectura_plot_path': ecg_lectura_plot_path, # NUEVO: Ruta al ECG de lectura
+        'ecg_lectura_reducido_plot_path': ecg_lectura_reducido_plot_path, # NUEVO: Ruta al ECG de lectura reducido
+        'segment_plot_paths': segment_plot_paths, # Lista de rutas a los gráficos de segmentos
+        'summary': summary_counts # Asegurarse de que el resumen siempre esté presente
     }
 
     return summary_results
@@ -358,15 +358,15 @@ def predictByPart(data, peaks, record_output_dir, record_name_base):
     """
     # Mapeo de clases para la salida
     classes_map = ['N','Ventricular','Paced','A','F','Noise'] # Mapeo de índices a nombres de clase
-    predicted_details = [] # Stores [{'class': 'N', 'probability': 'XX.X%', 'all_probs_array': [...], 'plot_path': '...'}]
-    result_string = "" # String for the results summary (for CLI)
-    segment_plot_paths = [] # List to store paths to individual segment plots
+    predicted_details = [] # Almacena [{'class': 'N', 'probability': 'XX.X%', 'all_probs_array': [...], 'plot_path': '...'}]
+    result_string = "" # Cadena para el resumen de resultados (para CLI)
+    segment_plot_paths = [] # Lista para almacenar las rutas a los gráficos de segmentos individuales
     
-    # FIX: Initialize 'counter' here
+    # FIX: Inicializa 'counter' aquí
     counter = [0] * len(classes_map) 
 
-    # Load the trained Keras model. It is crucial to include `custom_objects`
-    # if the model uses custom layers or functions.
+    # Carga el modelo Keras entrenado. Es crucial incluir `custom_objects`
+    # si el modelo utiliza capas o funciones personalizadas.
     try:
         model = load_model(
             'modelos/MLII-latest.keras',
@@ -380,25 +380,25 @@ def predictByPart(data, peaks, record_output_dir, record_name_base):
         print(f"{Colors.WARNING}Asegúrate de que el modelo 'MLII-latest.keras' exista en la carpeta 'modelos'.{Colors.ENDC}")
         return [], "Error al cargar el modelo.", []
 
-    config = get_config() # Get configuration for parameters like input_size
+    config = get_config() # Obtiene la configuración para parámetros como input_size
 
-    total_records = len(peaks) # Count all peaks
+    total_records = len(peaks) # Cuenta todos los picos
     if total_records == 0:
         print(f"{Colors.WARNING}No hay registros para procesar.{Colors.ENDC}")
         return [], "", []
 
     print(f"\n{Colors.BLUE}Iniciando procesamiento de registros...{Colors.ENDC}")
     
-    # Loop over all peaks
+    # Itera sobre todos los picos
     for i, peak in enumerate(peaks):
-        start_time = time.time() # Start timer for this step
+        start_time = time.time() # Inicia el temporizador para este paso
         current_record_num = i + 1
         
-        # Define the start and end of the segment centered on the peak
+        # Define el inicio y el fin del segmento centrado en el pico
         start = peak - config.input_size // 2
         end = peak + config.input_size // 2
 
-        # Adjust for data array boundaries, ensuring the segment has the correct size
+        # Ajusta para los límites del array de datos, asegurando que el segmento tenga el tamaño correcto
         if start < 0:
             start = 0
             end = config.input_size
@@ -406,52 +406,52 @@ def predictByPart(data, peaks, record_output_dir, record_name_base):
             end = data.shape[1]
             start = data.shape[1] - config.input_size
 
-        # Ensure the segment is valid before predicting
+        # Asegura que el segmento sea válido antes de predecir
         if (end - start) != config.input_size:
             sys.stdout.write(f"\n{Colors.WARNING}Registro-{current_record_num}/{total_records}: Salta pico en {peak} - segmento inválido (tamaño incorrecto). {Colors.ENDC}\n")
             sys.stdout.flush()
-            continue # Skip this record and move to the next
+            continue # Salta este registro y pasa al siguiente
 
-        # Perform prediction for the current segment
-        prob = model.predict(data[:, start:end], verbose=0) # verbose=0 to not show Keras bar
-        prob = prob[0] # Probabilities for the first (and only) sample in the batch
+        # Realiza la predicción para el segmento actual
+        prob = model.predict(data[:, start:end], verbose=0) # verbose=0 para no mostrar la barra de Keras
+        prob = prob[0] # Probabilidades para la primera (y única) muestra en el lote
 
-        ann_idx = np.argmax(prob) # Index of the class with the highest probability
-        counter[ann_idx] += 1 # Increment counter for the predicted class
+        ann_idx = np.argmax(prob) # Índice de la clase con la probabilidad más alta
+        counter[ann_idx] += 1 # Incrementa el contador para la clase predicha
 
-        end_time = time.time() # End timer for this step
+        end_time = time.time() # Termina el temporizador para este paso
         ms_per_step = (end_time - start_time) * 1000
 
-        # Progress bar and progress message for the current line
+        # Barra de progreso y mensaje de progreso para la línea actual
         progress = (current_record_num / total_records) * 100
-        bar_length = 20 # Visual length of the bar
+        bar_length = 20 # Longitud visual de la barra
         filled_bar = int(bar_length * progress / 100)
         
-        # The filled part of the bar is white, the rest is dark gray
+        # La parte llena de la barra es blanca, el resto es gris oscuro
         bar_fill = f"{Colors.WHITE}" + '█' * filled_bar + f"{Colors.ENDC}"
         bar_empty = f"{Colors.DARK_GRAY}" + '-' * (bar_length - filled_bar) + f"{Colors.ENDC}"
         
-        # Build the progress line for this step
+        # Construye la línea de progreso para este paso
         progress_line = (
-            f"{Colors.CYAN}{ms_per_step:.0f}ms/step - [{bar_fill}{bar_empty}] "
+            f"{Colors.CYAN}{ms_per_step:.0f}ms/paso - [{bar_fill}{bar_empty}] "
             f"{progress:.1f}% ({current_record_num}/{total_records}){Colors.ENDC}"
         )
         
-        # Individual classification message for each record (now always printed)
+        # Mensaje de clasificación individual para cada registro (ahora siempre se imprime)
         classification_msg = (
             f" {Colors.GREEN}Registro-{current_record_num}/{total_records}: "
             f"Clasificado como '{classes_map[ann_idx]}' con una certeza del {100 * prob[ann_idx]:3.1f}%.{Colors.ENDC}"
         )
         
-        # Print the full line for this step, followed by a newline
+        # Imprime la línea completa para este paso, seguida de un salto de línea
         sys.stdout.write(f"{progress_line}{classification_msg}\n")
         sys.stdout.flush()
 
 
-        # Build the detailed results string (for CLI)
+        # Construye la cadena de resultados detallados (para CLI)
         result_string += f"({classes_map[ann_idx]}:{round(100 * prob[ann_idx], 1)}%)"
 
-        # Generate a plot for EACH record segment
+        # Genera un gráfico para CADA segmento de registro
         individual_record_plot_filename = f'Segmento_{current_record_num}_pred_{classes_map[ann_idx]}.png'
         individual_record_plot_path = os.path.join(record_output_dir, individual_record_plot_filename)
         plt.figure(figsize=(8, 4))
@@ -467,20 +467,20 @@ def predictByPart(data, peaks, record_output_dir, record_name_base):
         # --- FIN AJUSTE ---
         plt.savefig(individual_record_plot_path, format="png", dpi=300, bbox_inches='tight', pad_inches=0) 
         plt.close()
-        segment_plot_paths.append(individual_record_plot_path) # Add path to the list
+        segment_plot_paths.append(individual_record_plot_path) # Añade la ruta a la lista
 
-        # Store predicted class, all probabilities, and plot path
+        # Almacena la clase predicha, todas las probabilidades y la ruta del gráfico
         predicted_details.append({
             'class': classes_map[ann_idx],
-            'probability': f"{round(100 * prob[ann_idx], 1)}%", # Probability of the predicted class as string (e.g., "74.2%")
-            'all_probs_array': prob.tolist(), # Full array of probabilities (for average calculation in predict_and_summarize)
-            'plot_path': individual_record_plot_path # Path to this segment's plot
+            'probability': f"{round(100 * prob[ann_idx], 1)}%", # Probabilidad de la clase predicha como cadena (ej., "74.2%")
+            'all_probs_array': prob.tolist(), # Array completo de probabilidades (para cálculo promedio en predict_and_summarize)
+            'plot_path': individual_record_plot_path # Ruta al gráfico de este segmento
         })
     
-    sys.stdout.write(f"\n{Colors.GREEN}Procesamiento de registros completado.{Colors.ENDC}\n") # Final completion message
+    sys.stdout.write(f"\n{Colors.GREEN}Procesamiento de registros completado.{Colors.ENDC}\n") # Mensaje final de completado
     sys.stdout.flush()
 
-    # Add the summary of counters to the end of the results string (for CLI)
+    # Añade el resumen de contadores al final de la cadena de resultados (para CLI)
     summary_parts = []
     for idx, count in enumerate(counter):
         summary_parts.append(f"{count}-{classes_map[idx]}")
@@ -490,115 +490,115 @@ def predictByPart(data, peaks, record_output_dir, record_name_base):
 
 def main(config):
     """
-    Main function to run the prediction process.
+    Función principal para ejecutar el proceso de predicción.
 
     Args:
-        config (object): Configuration object.
+        config (object): Objeto de configuración.
     """
     data = None
     label = None
-    record_name_for_folder = "unknown_record" # Default value for folder name
+    record_name_for_folder = "registro_desconocido" # Valor por defecto para el nombre de la carpeta
 
     if config.upload:
         print(f"{Colors.BLUE}Modo de carga de archivo activado. Asegúrate de que el archivo se pase correctamente.{Colors.ENDC}")
-        # In a real scenario, the base name of the uploaded file would be obtained here
-        # For this example, if there is no actual file uploaded, the default value is used
+        # En un escenario real, el nombre base del archivo subido se obtendría aquí
+        # Para este ejemplo, si no hay un archivo real subido, se utiliza el valor por defecto
         # data = uploadedData("path/to/your/uploaded_file.csv")
     else:
-        # Load data from the CINC 2017 challenge
-        data, label, record_id_from_cinc = cincData(config) # Capture the record_id
+        # Cargar datos del desafío CINC 2017
+        data, label, record_id_from_cinc = cincData(config) # Capturar el record_id
         if data is None:
             print(f"{Colors.FAIL}No se pudieron cargar los datos. Terminando la ejecución.{Colors.ENDC}")
             return
         
-        # Use the record_id obtained from cincData for the folder name
+        # Usar el record_id obtenido de cincData para el nombre de la carpeta
         if record_id_from_cinc:
             record_name_for_folder = record_id_from_cinc
 
 
-    # Preprocessing of signal data and peak detection
+    # Preprocesamiento de datos de señal y detección de picos
     data, peaks = preprocess(data, config)
 
-    # Perform prediction and get the result
+    # Realizar la predicción y obtener el resultado
     if data is not None and peaks is not None:
-        # Pass record_name_for_folder to predict_and_summarize
+        # Pasar record_name_for_folder a predict_and_summarize
         prediction_summary = predict_and_summarize(data, label, peaks, config, record_name_for_folder)
 
-        # Print information in the requested order and with colors (for CLI)
+        # Imprimir información en el orden solicitado y con colores (para CLI)
         print(f"\n{Colors.HEADER}--- Resumen de Predicción General ---{Colors.ENDC}")
 
-        # Detailed predictions section in table format
-        col1_width = 12 # Record #
-        col2_width = 18 # Predicted Class
-        # Width for probabilities: 6 probs * 12 chars/prob + 5 separators * 3 chars/separator = 72 + 15 = 87.
-        col3_width = 87 # Adjusted for scientific notation and separators
+        # Sección de predicciones detalladas en formato de tabla
+        col1_width = 12 # Registro #
+        col2_width = 18 # Clase Predicha
+        # Ancho para las probabilidades: 6 probs * 12 chars/prob + 5 separadores * 3 chars/separador = 72 + 15 = 87.
+        col3_width = 87 # Ajustado para notación científica y separadores
         
         print(f"{Colors.BLUE}Predicciones Detalladas (por parte):{Colors.ENDC}")
-        # Top table line
+        # Línea superior de la tabla
         print(f"{Colors.CYAN}+{'-' * (col1_width + 2)}+{'-' * (col2_width + 2)}+{'-' * (col3_width + 2)}+{Colors.ENDC}")
-        # Table header
-        # Format probability header to match subcolumn width
+        # Encabezado de la tabla
+        # Formatear encabezado de probabilidad para que coincida con el ancho de la subcolumna
         prob_header_parts = [
             f"{'N':<12}", f"{'V':<12}", f"{'P':<12}",
-            f"{'A':<12}", f"{'F':<12}", f"{'Noise':<12}"
+            f"{'A':<12}", f"{'F':<12}", f"{'Ruido':<12}"
         ]
         prob_header_str = f"({' | '.join(prob_header_parts)})"
         
         print(f"{Colors.CYAN}| {Colors.UNDERLINE}{'Registro #':<{col1_width}}{Colors.ENDC}{Colors.CYAN} | {Colors.UNDERLINE}{'Clase Predicha':<{col2_width}}{Colors.ENDC}{Colors.CYAN} | {Colors.UNDERLINE}{'Probabilidades':<{col3_width}}{Colors.ENDC}{Colors.CYAN} |{Colors.ENDC}")
-        # Separator between header and data
+        # Separador entre encabezado y datos
         print(f"{Colors.CYAN}+{'-' * (col1_width + 2)}+{'-' * (col2_width + 2)}+{'-' * (col3_width + 2)}+{Colors.ENDC}")
         
         for i, pred_detail in enumerate(prediction_summary['predictions_detailed']):
             pred_class = pred_detail['class']
             probabilities = pred_detail['all_probs_array']
-            # Alternate text colors for rows
+            # Colores de texto alternos para las filas
             text_color = Colors.BLUE if i % 2 == 0 else Colors.CYAN
             
-            # Format probabilities with scientific notation and vertical lines between them
-            prob_parts_formatted = [f'{p:.7e}' for p in probabilities] # Scientific notation format
+            # Formatear probabilidades con notación científica y líneas verticales entre ellas
+            prob_parts_formatted = [f'{p:.7e}' for p in probabilities] # Formato de notación científica
             
-            prob_cell_content = f'{prob_parts_formatted[0]:<12}' # First element with its padding
+            prob_cell_content = f'{prob_parts_formatted[0]:<12}' # Primer elemento con su relleno
             for k in range(1, len(prob_parts_formatted)):
-                # Add vertical separator with color and then the next element with its color and padding
+                # Agregar separador vertical con color y luego el siguiente elemento con su color y relleno
                 prob_cell_content += f'{Colors.CYAN} | {text_color}{prob_parts_formatted[k]:<12}'
             
-            # Print the row with colors and vertical lines
+            # Imprimir la fila con colores y líneas verticales
             print(f"{Colors.CYAN}| {text_color}{i + 1:<{col1_width}}{Colors.ENDC}{Colors.CYAN} | {text_color}{pred_class:<{col2_width}}{Colors.ENDC}{Colors.CYAN} | {text_color}{prob_cell_content:<{col3_width}}{Colors.ENDC}{Colors.CYAN} |{Colors.ENDC}")
             
-            # Horizontal line after each row, except the last
+            # Línea horizontal después de cada fila, excepto la última
             if i < len(prediction_summary['predictions_detailed']) - 1:
                 print(f"{Colors.CYAN}+{'-' * (col1_width + 2)}+{'-' * (col2_width + 2)}+{'-' * (col3_width + 2)}+{Colors.ENDC}")
-        # Final table line
+        # Línea final de la tabla
         print(f"{Colors.CYAN}+{'-' * (col1_width + 2)}+{'-' * (col2_width + 2)}+{'-' * (col3_width + 2)}+{Colors.ENDC}")
 
 
-        # Average prediction section in table format
-        col1_width_avg = 15 # Class
-        col2_width_avg = 20 # Average Probability (for header text)
+        # Sección de predicción promedio en formato de tabla
+        col1_width_avg = 15 # Clase
+        col2_width_avg = 20 # Probabilidad Media (para el texto del encabezado)
         
         print(f"\n{Colors.BLUE}Media de la Predicción:{Colors.ENDC}")
         
         if prediction_summary['average_probabilities']:
             avg_classes_map = ['Normal', 'Ventricular', 'Estimulado', 'Auricular', 'Fusión', 'Ruido']
             
-            # Top table line
+            # Línea superior de la tabla
             print(f"{Colors.CYAN}+{'-' * (col1_width_avg + 2)}+{'-' * (col2_width_avg + 2)}+{Colors.ENDC}")
-            # Table header
+            # Encabezado de la tabla
             print(f"{Colors.CYAN}| {Colors.UNDERLINE}{'Clase':<{col1_width_avg}}{Colors.ENDC}{Colors.CYAN} | {Colors.UNDERLINE}{'Probabilidad Media':<{col2_width_avg}}{Colors.ENDC}{Colors.CYAN} |{Colors.ENDC}")
-            # Separator between header and data
+            # Separador entre encabezado y datos
             print(f"{Colors.CYAN}+{'-' * (col1_width_avg + 2)}+{'-' * (col2_width + 2)}+{Colors.ENDC}")
             
             for i, prob_avg in enumerate(prediction_summary['average_probabilities']):
-                # Alternate text colors for rows
+                # Colores de texto alternos para las filas
                 text_color = Colors.BLUE if i % 2 == 0 else Colors.CYAN
-                # Format average probability in scientific notation
+                # Formatear probabilidad promedio en notación científica
                 formatted_prob_avg = f'{prob_avg:.7e}%'
                 print(f"{Colors.CYAN}| {text_color}{avg_classes_map[i]:<{col1_width_avg}}{Colors.ENDC}{Colors.CYAN} | {text_color}{formatted_prob_avg:<{col2_width_avg}}{Colors.ENDC}{Colors.CYAN} |{Colors.ENDC}")
                 
-                # Horizontal line after each row, except the last
+                # Línea horizontal después de cada fila, excepto la última
                 if i < len(prediction_summary['average_probabilities']) - 1:
                     print(f"{Colors.CYAN}+{'-' * (col1_width_avg + 2)}+{'-' * (col2_width_avg + 2)}+{Colors.ENDC}")
-            # Final table line
+            # Línea final de la tabla
             print(f"{Colors.CYAN}+{'-' * (col1_width_avg + 2)}+{'-' * (col2_width_avg + 2)}+{Colors.ENDC}")
         else:
             print(f"{Colors.WARNING}No hay probabilidades promedio disponibles.{Colors.ENDC}")
@@ -616,6 +616,6 @@ def main(config):
         print(f"{Colors.FAIL}El preprocesamiento de datos falló. No se pudo realizar la predicción.{Colors.ENDC}")
 
 if __name__ == '__main__':
-    # This runs only if the script is executed directly
-    config_obj = get_config() # Get configuration from command line
+    # Esto se ejecuta solo si el script se ejecuta directamente
+    config_obj = get_config() # Obtener la configuración de la línea de comandos
     main(config_obj)
