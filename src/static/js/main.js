@@ -21,9 +21,11 @@ $(document).ready(function () {
     const ecgFileToFormatInput = $('#ecgFileToFormat'); // Input para subir archivos WFDB (.mat, .hea, .dat)
     const ecgFileToFormatLabel = $('label[for="ecgFileToFormat"]'); // Etiqueta del input de archivos WFDB
     const formatEcgButton = $('#btn-format-ecg'); // Botón de "Formatear ECG a CSV"
+    const formatEcgFullButton = $('#btn-format-ecg-full'); // Nuevo botón: "Formatear ECG a CSV Completo"
 
     // Ocultar el botón de formateo al inicio y establecer el texto por defecto de la etiqueta
     formatEcgButton.hide();
+    formatEcgFullButton.hide(); // Ocultar el nuevo botón también
     ecgFileToFormatLabel.text('Seleccionar archivos ECG para formatear (.mat, .hea, .dat)...');
 
 
@@ -86,26 +88,71 @@ $(document).ready(function () {
     // --- Funcionalidad del input de archivo ECG (para formatear) ---
     ecgFileToFormatInput.on('change', function(){
         const files = this.files; // Obtiene la lista de archivos seleccionados
+        let fileNames = [];
+        let hasHea = false;
+        let hasMat = false;
+        let hasDat = false;
+        let baseNames = new Set(); // Para verificar nombres base consistentes
+
+        resultsDiv.empty(); // Limpiar cualquier mensaje anterior
+
         if (files.length > 0) {
-            let fileNames = Array.from(files).map(file => file.name).join(', ');
-            // Ajusta el texto de la etiqueta si hay muchos archivos o solo dos
-            if (files.length > 2) {
-                fileNames = `${files.length} archivos seleccionados`;
-            } else if (files.length === 2) {
-                fileNames = `${files[0].name}, ${files[1].name}`;
-            } else {
-                fileNames = files[0].name;
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                fileNames.push(file.name);
+                const fileExtension = file.name.split('.').pop().toLowerCase();
+                const fileBaseName = file.name.substring(0, file.name.lastIndexOf('.'));
+                baseNames.add(fileBaseName);
+
+                if (fileExtension === 'hea') {
+                    hasHea = true;
+                } else if (fileExtension === 'mat') {
+                    hasMat = true;
+                } else if (fileExtension === 'dat') {
+                    hasDat = true;
+                }
             }
-            ecgFileToFormatLabel.html(fileNames); // Actualiza la etiqueta con los nombres de los archivos
-            formatEcgButton.show(); // Muestra el botón de formatear
+
+            // Validar que todos los archivos tengan el mismo nombre base
+            if (baseNames.size > 1) {
+                const msgBox = $('<div>').addClass('alert alert-danger').text('Error: Todos los archivos WFDB deben tener el mismo nombre base (ej. record.mat y record.hea).');
+                resultsDiv.prepend(msgBox);
+                formatEcgButton.hide();
+                formatEcgFullButton.hide();
+                ecgFileToFormatLabel.html('Seleccionar archivos ECG para formatear (.mat, .hea, .dat)...'); // Reset label
+                return;
+            }
+
+            // Validar combinación de archivos
+            if (hasHea && (hasMat || hasDat)) {
+                // Combinación válida: .hea y (.mat o .dat)
+                ecgFileToFormatLabel.html(fileNames.join(', '));
+                formatEcgButton.show();
+                formatEcgFullButton.show();
+            } else if ((hasMat || hasDat) && !hasHea) {
+                // Solo .mat o .dat, pero falta .hea
+                const msgBox = $('<div>').addClass('alert alert-warning').text('Advertencia: Se detectó un archivo .mat o .dat sin su correspondiente archivo .hea. Se recomienda subir ambos para un formateo completo y preciso.');
+                resultsDiv.prepend(msgBox);
+                // Permitir el formateo para el caso de un solo .mat, pero advertir
+                ecgFileToFormatLabel.html(fileNames.join(', '));
+                formatEcgButton.show();
+                formatEcgFullButton.show();
+            } else {
+                // Solo .hea o ninguna combinación válida
+                const msgBox = $('<div>').addClass('alert alert-danger').text('Para formatear un ECG, se requiere un par de archivos: un archivo .hea y un archivo de datos WFDB (.mat o .dat) con el mismo nombre base.');
+                resultsDiv.prepend(msgBox);
+                formatEcgButton.hide();
+                formatEcgFullButton.hide();
+            }
         } else {
-            // Si no hay archivos seleccionados, restaura el texto y oculta el botón
+            // Si no hay archivos seleccionados, restaura el texto y oculta los botones
             ecgFileToFormatLabel.html('Seleccionar archivos ECG para formatear (.mat, .hea, .dat)...');
             formatEcgButton.hide();
+            formatEcgFullButton.hide(); // Oculta el nuevo botón
         }
     });
 
-    // --- Lógica para el botón de Formatear ECG a CSV ---
+    // --- Lógica para el botón de Formatear ECG a CSV (derivación única) ---
     formatEcgButton.on('click', function() {
         const files = ecgFileToFormatInput[0].files; // Obtiene los archivos del input
         if (files.length === 0) {
@@ -119,6 +166,7 @@ $(document).ready(function () {
 
         // Oculta el botón de formateo y muestra la barra de progreso
         formatEcgButton.hide();
+        formatEcgFullButton.hide(); // Ocultar el otro botón también
         progressSection.show();
         progressBarFill.css('width', '0%');
         progressText.text('0%');
@@ -142,7 +190,7 @@ $(document).ready(function () {
         // Realiza la petición AJAX para formatear los archivos
         $.ajax({
             type: 'POST',
-            url: '/format_ecg',
+            url: '/format_ecg', // Ruta para el formateo de derivación única
             data: formData,
             contentType: false, // Importante para enviar FormData
             cache: false,
@@ -182,12 +230,13 @@ $(document).ready(function () {
                 resultsDiv.prepend(msgBox);
                 setTimeout(() => msgBox.fadeOut(), 5000); // El mensaje desaparece después de 5 segundos
 
-                // Limpia el input de archivo y oculta el botón después de la descarga exitosa
+                // Limpia el input de archivo y oculta los botones después de la descarga exitosa
                 ecgFileToFormatInput.val('');
                 ecgFileToFormatLabel.html('Seleccionar archivos ECG para formatear (.mat, .hea, .dat)...');
                 setTimeout(function() {
                     progressSection.hide();
-                    formatEcgButton.hide(); // Asegurarse de que el botón de formateo esté oculto
+                    formatEcgButton.hide(); 
+                    formatEcgFullButton.hide(); // Ocultar ambos botones
                 }, 1000);
 
             },
@@ -200,6 +249,7 @@ $(document).ready(function () {
                 setTimeout(function() {
                     progressSection.hide();
                     formatEcgButton.show(); // Muestra el botón de formateo de nuevo
+                    formatEcgFullButton.show(); // Muestra el nuevo botón de formateo completo
                 }, 1000);
 
                 // Intenta parsear el mensaje de error del servidor o usa un mensaje genérico
@@ -221,10 +271,123 @@ $(document).ready(function () {
 
                 console.error('Error en formateo:', error, xhr.responseText);
 
-                // Limpia el input de archivo y oculta el botón en caso de error
                 ecgFileToFormatInput.val('');
                 ecgFileToFormatLabel.html('Seleccionar archivos ECG para formatear (.mat, .hea, .dat)...');
-                formatEcgButton.hide(); // Oculta el botón después del error para empezar de nuevo
+                formatEcgButton.hide(); 
+                formatEcgFullButton.hide(); // Oculta ambos botones después del error
+            }
+        });
+    });
+
+    // --- Lógica para el botón de Formatear ECG a CSV Completo ---
+    formatEcgFullButton.on('click', function() {
+        const files = ecgFileToFormatInput[0].files; // Obtiene los archivos del input
+        if (files.length === 0) {
+            const msgBox = $('<div>').addClass('alert alert-warning').text('Por favor, selecciona al menos un archivo ECG para formatear.');
+            resultsDiv.html('');
+            resultsDiv.prepend(msgBox);
+            setTimeout(() => msgBox.fadeOut(), 3000);
+            return;
+        }
+
+        formatEcgButton.hide();
+        formatEcgFullButton.hide();
+        progressSection.show();
+        progressBarFill.css('width', '0%');
+        progressText.text('0%');
+
+        let currentFormatProgress = 0;
+        progressInterval = setInterval(function() {
+            if (currentFormatProgress < 95) {
+                currentFormatProgress += 5;
+                progressBarFill.css('width', currentFormatProgress + '%');
+                progressText.text(currentFormatProgress + '%');
+            }
+        }, 150);
+
+        const formData = new FormData();
+        for (let i = 0; i < files.length; i++) {
+            formData.append('ecg_file_to_format', files[i]);
+        }
+
+        $.ajax({
+            type: 'POST',
+            url: '/format_ecg_full', // Nueva ruta para el formateo completo
+            data: formData,
+            contentType: false,
+            cache: false,
+            processData: false,
+            xhrFields: {
+                responseType: 'blob'
+            },
+            success: function (blob, status, xhr) {
+                clearInterval(progressInterval);
+                progressBarFill.css('width', '100%');
+                progressText.text('¡Formateo Completado!');
+
+                const disposition = xhr.getResponseHeader('Content-Disposition');
+                let filename = 'formatted_ecg_full.csv';
+                if (disposition && disposition.indexOf('attachment') !== -1) {
+                    const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+                    const matches = filenameRegex.exec(disposition);
+                    if (matches != null && matches[1]) {
+                        filename = decodeURIComponent(matches[1].replace(/['"]/g, ''));
+                    }
+                }
+
+                const a = document.createElement('a');
+                a.href = window.URL.createObjectURL(blob);
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(a.href);
+
+                const msgBox = $('<div>').addClass('alert alert-success').text(`Archivo "${filename}" formateado (completo) y descargado exitosamente.`);
+                resultsDiv.html('');
+                resultsDiv.prepend(msgBox);
+                setTimeout(() => msgBox.fadeOut(), 5000);
+
+                ecgFileToFormatInput.val('');
+                ecgFileToFormatLabel.html('Seleccionar archivos ECG para formatear (.mat, .hea, .dat)...');
+                setTimeout(function() {
+                    progressSection.hide();
+                    formatEcgButton.hide();
+                    formatEcgFullButton.hide();
+                }, 1000);
+            },
+            error: function(xhr, status, error) {
+                clearInterval(progressInterval);
+                progressBarFill.css('width', '0%');
+                progressText.text('Error en Formateo Completo');
+
+                setTimeout(function() {
+                    progressSection.hide();
+                    formatEcgButton.show();
+                    formatEcgFullButton.show();
+                }, 1000);
+
+                let errorMsg = 'Error al formatear (completo): ' + (xhr.responseJSON ? xhr.responseJSON.error : 'Error desconocido.');
+                if (xhr.responseJSON === undefined && xhr.responseText) {
+                    try {
+                        const errorData = JSON.parse(xhr.responseText);
+                        errorMsg = 'Error al formatear (completo): ' + (errorData.error || 'Error desconocido.');
+                    } catch (e) {
+                        errorMsg = 'Error al formatear (completo): Problema de conexión o archivo inválido.';
+                    }
+                }
+
+                const msgBox = $('<div>').addClass('alert alert-danger').text(errorMsg);
+                resultsDiv.html('');
+                resultsDiv.prepend(msgBox);
+                setTimeout(() => msgBox.fadeOut(), 5000);
+
+                console.error('Error en formateo completo:', error, xhr.responseText);
+
+                ecgFileToFormatInput.val('');
+                ecgFileToFormatLabel.html('Seleccionar archivos ECG para formatear (.mat, .hea, .dat)...');
+                formatEcgButton.hide();
+                formatEcgFullButton.hide();
             }
         });
     });
@@ -335,6 +498,7 @@ $(document).ready(function () {
                                 <p id="secondProbableClass"></p>
                                 <p id="thirdProbableClass"></p>
                                 <p id="originalLabel"></p>
+                                <p id="cardiacConditionSuggestion"></p> <!-- NUEVO: Párrafo para la sugerencia de afección cardíaca -->
                                 <p id="accuracyResult" style="font-weight: bold;"></p>
                                 <p id="f1ScoreResult" style="font-weight: bold;"></p>
                             </div>
@@ -406,6 +570,7 @@ $(document).ready(function () {
                 const currentSecondProbableClassP = $('#secondProbableClass');
                 const currentThirdProbableClassP = $('#thirdProbableClass');
                 const currentOriginalLabelP = $('#originalLabel');
+                const currentCardiacConditionSuggestionP = $('#cardiacConditionSuggestion'); // NUEVO: Obtener referencia al nuevo párrafo
                 const currentAccuracyP = $('#accuracyResult'); // Nuevo
                 const currentF1ScoreP = $('#f1ScoreResult');   // Nuevo
                 const currentSegmentPlotsContainer = $('#segmentPlotsContainer'); // No se usa aquí para añadir plots, pero se mantiene la referencia
@@ -417,13 +582,12 @@ $(document).ready(function () {
                 // Rellena la tabla de predicciones detalladas
                 data.predictions.forEach(function(pred, index) {
                     const row = $('<tr>').appendTo(currentDetailedPredictionsTableBody);
-                    // Formatea las probabilidades para mostrar con precisión completa
-                    // Usar 'all_probs_string' que ya viene formateado
-                    const probabilitiesFormatted = pred.all_probs_string; 
+                    // Muestra solo la probabilidad de la clase detectada
+                    const probabilityFormatted = pred.probability;
 
                     row.append(`<td>${index + 1}</td>`);
                     row.append(`<td>${pred.class}</td>`);
-                    row.append(`<td>${probabilitiesFormatted}</td>`);
+                    row.append(`<td>${probabilityFormatted}</td>`);
                 });
 
                 // Mapeo de índices a nombres de clase para la tabla de promedio
@@ -442,7 +606,13 @@ $(document).ready(function () {
                 currentMostProbableClassP.text(`La etiqueta más probable es ${data.most_probable_class || 'N/A'} con una certeza del ${data.most_probable_certainty ? data.most_probable_certainty.toFixed(1) : 'N/A'}%.`);
                 currentSecondProbableClassP.text(`La segunda etiqueta prevista es ${data.second_probable_class || 'N/A'} con una certeza del ${data.second_probable_certainty ? data.second_probable_certainty.toFixed(1) : 'N/A'}%.`);
                 currentThirdProbableClassP.text(`La tercera etiqueta prevista es ${data.third_probable_class || 'N/A'} con una certeza del ${data.third_probable_certainty ? data.third_probable_certainty.toFixed(1) : 'N/A'}%.`);
-                currentOriginalLabelP.text(`La etiqueta original del registro es ${data.original_label || 'N/A'}`);
+                // Eliminado: La etiqueta original ya no se muestra
+                // const displayOriginalLabel = data.original_label && data.original_label.trim() !== '' ? data.original_label : 'No disponible (solo para archivos convertidos desde WFDB)';
+                // currentOriginalLabelP.text(`La etiqueta original del registro es ${displayOriginalLabel}`);
+                // Se asegura que la sugerencia de condición cardíaca esté presente y sea prominente
+                currentCardiacConditionSuggestionP.text(data.cardiac_condition_suggestion || 'No se pudo determinar una sugerencia de afección cardíaca.');
+
+
                 // Mostrar Accuracy y F1-score solo si están disponibles
                 if (data.accuracy_val) {
                     currentAccuracyP.text(`Accuracy del Modelo: ${data.accuracy_val}`);

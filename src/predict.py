@@ -112,7 +112,8 @@ def predict_and_summarize(data, label, peaks, config, record_name_base):
         dict: Un diccionario que contiene el resumen de las predicciones, incluyendo
               la lista de predicciones detalladas, la clase más probable,
               la segunda clase más probable y sus certezas, la tercera clase y certeza,
-              la etiqueta original, las probabilidades promedio y las rutas a los gráficos.
+              la etiqueta original, las probabilidades promedio y las rutas a los gráficos,
+              y una sugerencia sobre la afección cardíaca.
     """
     # Crear el directorio para los resultados de este registro
     record_output_dir = f'resultados/{record_name_base}'
@@ -316,6 +317,26 @@ def predict_and_summarize(data, label, peaks, config, record_name_base):
         third_probable_class = classes_map[third_idx]
         third_probable_certainty = 100 * avg_predict[third_idx]
 
+    # --- NUEVA LÓGICA: Sugerencia de afección cardíaca ---
+    cardiac_condition_suggestion = ""
+    if most_probable_class == 'N':
+        if most_probable_certainty >= 80.0: # Umbral para considerar "Normal" con alta certeza
+            cardiac_condition_suggestion = "Los resultados sugieren que el paciente tiene un ritmo cardíaco normal y no presenta afecciones cardíacas significativas."
+        else:
+            cardiac_condition_suggestion = "Aunque la etiqueta más probable es Normal, la certeza no es muy alta. Se recomienda una revisión médica más detallada para descartar posibles afecciones sutiles."
+    elif most_probable_class == 'Ventricular':
+        cardiac_condition_suggestion = f"Los resultados sugieren que el paciente sufre de contracciones ventriculares prematuras ({most_probable_class}). Se recomienda una evaluación médica."
+    elif most_probable_class == 'A':
+        cardiac_condition_suggestion = f"Los resultados sugieren que el paciente sufre de latidos auriculares prematuros ({most_probable_class}). Se recomienda una evaluación médica."
+    elif most_probable_class == 'Paced':
+        cardiac_condition_suggestion = f"Los resultados sugieren que el paciente tiene un ritmo cardíaco inducido por marcapasos ({most_probable_class}). Esto es un hallazgo esperado si el paciente usa marcapasos."
+    elif most_probable_class == 'F':
+        cardiac_condition_suggestion = f"Los resultados sugieren que el paciente presenta indicios de latidos fusionados ({most_probable_class}), indicando una combinación de actividad ventricular y normal. Se recomienda una evaluación médica."
+    elif most_probable_class == 'Noise':
+        cardiac_condition_suggestion = "La señal contiene demasiado ruido (Noise), lo que impide una clasificación confiable. Se recomienda repetir el estudio o asegurar una mejor calidad de señal."
+    else:
+        cardiac_condition_suggestion = "No se pudo determinar una sugerencia clara de afección cardíaca debido a la naturaleza de la predicción."
+
     # Construye el diccionario de resultados
     summary_results = {
         'predictions_detailed': predicted_list_raw, # CORREGIDO: Usar predicted_list_raw
@@ -332,7 +353,8 @@ def predict_and_summarize(data, label, peaks, config, record_name_base):
         'ecg_lectura_plot_path': ecg_lectura_plot_path, # NUEVO: Ruta al ECG de lectura
         'ecg_lectura_reducido_plot_path': ecg_lectura_reducido_plot_path, # NUEVO: Ruta al ECG de lectura reducido
         'segment_plot_paths': segment_plot_paths, # Lista de rutas a los gráficos de segmentos
-        'summary': summary_counts # Asegurarse de que el resumen siempre esté presente
+        'summary': summary_counts, # Asegurarse de que el resumen siempre esté presente
+        'cardiac_condition_suggestion': cardiac_condition_suggestion # NUEVO: Sugerencia de afección cardíaca
     }
 
     return summary_results
@@ -611,6 +633,9 @@ def main(config):
             print(f"{Colors.CYAN}La tercera etiqueta prevista es {Colors.BOLD}{prediction_summary['third_probable_class']}{Colors.ENDC}{Colors.CYAN} con una certeza del {prediction_summary['third_probable_certainty']:3.1f}%.{Colors.ENDC}")
         if prediction_summary['original_label']:
             print(f"{Colors.CYAN}La etiqueta original del registro es {Colors.BOLD}{prediction_summary['original_label']}{Colors.ENDC}")
+        
+        # NUEVA LÍNEA: Imprimir la sugerencia de afección cardíaca
+        print(f"{Colors.BOLD}{Colors.WARNING}{prediction_summary['cardiac_condition_suggestion']}{Colors.ENDC}")
 
     else:
         print(f"{Colors.FAIL}El preprocesamiento de datos falló. No se pudo realizar la predicción.{Colors.ENDC}")

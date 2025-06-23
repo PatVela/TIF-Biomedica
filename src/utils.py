@@ -8,6 +8,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # Suprime los mensajes de log de Tensor
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0' # Deshabilita optimizaciones de OneDNN
 import h5py # Para trabajar con archivos HDF5 (formato .keras)
 import csv # Importa el módulo csv para leer y escribir archivos CSV
+import pandas as pd # Importado para manejar datos y exportar a CSV
 
 def mkdir_recursive(path):
   """
@@ -411,39 +412,32 @@ def uploadedData(filename, csvbool = True):
         csvbool (bool, optional): Si es True, intenta leer el archivo como CSV. Por defecto, True.
 
     Returns:
-        tuple: Una tupla que contiene (sampling_rate, signal_data_array_1D).
+        tuple: Una tupla que contiene (sampling_rate, signal_data_array).
                sampling_rate (float or None): Frecuencia de muestreo leída de la primera línea del CSV.
-               signal_data_array_1D (np.array): Datos de la señal como un array 1D.
+               signal_data_array (np.array): Datos de la señal como un array 1D o 2D (muestras, derivaciones).
     """
     if csvbool:
-        csvlist = [] # Esta lista almacenará solo los valores numéricos de la señal.
-        sampling_rate = None # Variable para almacenar la frecuencia de muestreo.
-
-        with open(filename, 'r') as csvfile:
-            reader = csv.reader(csvfile)
-
-            # Intenta leer la primera línea como la frecuencia de muestreo.
-            first_line = next(reader, None)
-            if first_line:
+        sampling_rate = None
+        # Intentar leer la primera línea para la frecuencia de muestreo
+        with open(filename, 'r') as f:
+            first_line = f.readline().strip()
+            if first_line.startswith('#'):
                 try:
-                    sampling_rate = float(first_line[0])
+                    sampling_rate = float(first_line.split(':')[1].strip())
+                    # Leer el resto del archivo como CSV sin el encabezado
+                    df = pd.read_csv(filename, skiprows=1)
                 except (ValueError, IndexError):
-                    print(f"Advertencia: La primera línea '{first_line}' no es un sampling rate numérico válido. Se usará el valor por defecto.")
-                    sampling_rate = None # Asegura que sea None si falla la lectura.
+                    # Si no se puede parsear como sampling rate, tratar como un CSV normal
+                    df = pd.read_csv(filename)
+            else:
+                # Si la primera línea no es un comentario de sampling rate, leerla como parte del CSV
+                df = pd.read_csv(filename)
+        
+        # Convertir el DataFrame a un array de NumPy
+        # Si hay una sola columna, será 1D. Si hay varias, será 2D.
+        signal_data_array = df.values.squeeze()
 
-            # Lee las líneas restantes, asumiendo que los datos están en la primera columna.
-            for row in reader:
-                if not row: # Salta líneas completamente vacías.
-                    continue
-                try:
-                    # Intenta convertir el primer elemento de la fila a flotante y lo añade a la lista.
-                    csvlist.append(float(row[0]))
-                except (ValueError, IndexError):
-                    # Ignora la línea si no es un número o está mal formateada.
-                    continue
-
-        # Devuelve la frecuencia de muestreo y los datos de la señal como un array numpy 1D.
-        return sampling_rate, np.array(csvlist)
+        return sampling_rate, signal_data_array
     else:
         # Esta parte no se usa actualmente para la predicción en el frontend.
         # Si csvbool es False, se esperaría otra lógica de carga de datos.
