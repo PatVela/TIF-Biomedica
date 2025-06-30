@@ -164,6 +164,14 @@ def model_predict(img_path, original_label=None, patient_name="Desconocido", pat
         size = MAX_ECG_SIGNAL_POINTS
         selected_signal = selected_signal[:size]
 
+    # Guardar el array original de todas las derivaciones (recortado si es necesario)
+    raw_multilead_signal = data_signal_only
+    if hasattr(data_signal_only, 'values'):
+        raw_multilead_signal = data_signal_only.values
+    if raw_multilead_signal.ndim == 2 and raw_multilead_signal.shape[0] > 0:
+        if raw_multilead_signal.shape[0] > MAX_ECG_SIGNAL_POINTS:
+            raw_multilead_signal = raw_multilead_signal[:MAX_ECG_SIGNAL_POINTS, :]
+
     # Preprocesar los datos y encontrar los picos
     # preprocess ahora espera el sampling rate dentro del objeto config
     data_processed, peaks = preprocess(selected_signal, config) # Pasar selected_signal
@@ -173,7 +181,7 @@ def model_predict(img_path, original_label=None, patient_name="Desconocido", pat
 
     # Llamar a predict_and_summarize que ahora devuelve un diccionario completo de resumen.
     # Usar el original_label pasado como parámetro. Si es None, predict_and_summarize lo manejará.
-    prediction_summary_data = predict_and_summarize(data_processed, original_label, peaks, config, record_name_base)
+    prediction_summary_data = predict_and_summarize(data_processed, original_label, peaks, config, record_name_base, raw_multilead_signal=raw_multilead_signal)
 
     # Añadir información del paciente a los datos de resumen de predicción
     prediction_summary_data['patient_name'] = patient_name
@@ -332,6 +340,8 @@ def upload():
                     else:
                         extracted_patient_name = "A. N. Other"
             print(f"DEBUG final patient info before model_predict: Name={extracted_patient_name}, Age={extracted_patient_age}, Sex={extracted_patient_sex}")
+            config = get_config()
+            config.csv_path = file_path  # <--- Asegura que la ruta del CSV esté disponible para los nombres de derivación
             prediction_summary_data = model_predict(
                 file_path,
                 original_label=extracted_original_label,

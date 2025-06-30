@@ -96,7 +96,7 @@ def cincData(config):
 
     return data, actual_label, record_id_from_csv # Retorna también el record_id
 
-def predict_and_summarize(data, label, peaks, config, record_name_base):
+def predict_and_summarize(data, label, peaks, config, record_name_base, raw_multilead_signal=None):
     """
     Realiza predicciones sobre los datos y genera un resumen detallado.
     También genera gráficos de la señal ECG completa y de cada segmento de registro.
@@ -251,6 +251,90 @@ def predict_and_summarize(data, label, peaks, config, record_name_base):
     print(f"{Colors.BLUE}Gráfico de lectura de ECG reducido guardado en: {ecg_lectura_reducido_plot_path}{Colors.ENDC}")
     # --- FIN NUEVO: Gráfico reducido ---
 
+    # --- NUEVO: Gráfico de 12 derivaciones (si existen) ---
+    ecg_12leads_plot_path = None
+    # Usar raw_multilead_signal si está disponible y es 2D con >=2 columnas
+    if raw_multilead_signal is not None and hasattr(raw_multilead_signal, 'shape') and raw_multilead_signal.ndim == 2 and raw_multilead_signal.shape[1] >= 2:
+        num_leads = raw_multilead_signal.shape[1]
+        leads_to_plot = min(num_leads, 12)
+        # Obtener nombres de columna si es un DataFrame de pandas
+        lead_names = None
+        raw_multilead_np = raw_multilead_signal
+        try:
+            import pandas as pd
+            if isinstance(raw_multilead_signal, pd.DataFrame):
+                lead_names = list(raw_multilead_signal.columns)[:leads_to_plot]
+                raw_multilead_np = raw_multilead_signal.values
+        except ImportError:
+            pass
+        # Si no es DataFrame, intentar obtener de config.lead_names
+        if lead_names is None:
+            # Si el archivo original era un .csv leído con pandas, pero aquí llega como np.ndarray,
+            # intentamos recuperar los nombres leyendo el .csv de nuevo
+            if hasattr(config, 'csv_path') and os.path.exists(config.csv_path):
+                try:
+                    # --- NUEVO: Leer encabezado real saltando comentarios ---
+                    with open(config.csv_path, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            if not line.strip().startswith('#') and line.strip():
+                                lead_names = [col.strip() for col in line.strip().split(',')][:leads_to_plot]
+                                break
+                    # Si no se encontraron nombres, intentar con pandas como fallback
+                    if not lead_names:
+                        import pandas as pd
+                        df_tmp = pd.read_csv(config.csv_path, comment='#')
+                        lead_names = list(df_tmp.columns)[:leads_to_plot]
+                except Exception as e:
+                    print(f"No se pudieron extraer los nombres de las derivaciones del CSV: {e}")
+                    lead_names = None
+            elif hasattr(config, 'lead_names') and config.lead_names:
+                lead_names = list(config.lead_names)[:leads_to_plot]
+            else:
+                # Nombres estándar para 12 derivadas
+                standard_12lead_names = [
+                    'I', 'II', 'III', 'aVR', 'aVL', 'aVF',
+                    'V1', 'V2', 'V3', 'V4', 'V5', 'V6'
+                ]
+                lead_names = standard_12lead_names[:leads_to_plot]
+        ecg_12leads_filename = f'ECG_12_derivadas_{record_name_base}.png'
+        ecg_12leads_plot_path = os.path.join(record_output_dir, ecg_12leads_filename)
+        fig, axes = plt.subplots(4, 3, figsize=(18, 10), sharex=True)
+        fig.suptitle(f"ECG 12 derivaciones para: {record_name_base}", fontsize=18)
+        mm_per_second = 25
+        fs = getattr(config, 'sample_rate', 360)
+        num_samples = raw_multilead_np.shape[0]
+        for i in range(leads_to_plot):
+            ax = axes[i // 3, i % 3]
+            ax.plot(raw_multilead_np[:, i], color='black', linewidth=0.75)
+            ax.set_title(lead_names[i], fontsize=12)
+            ax.set_ylabel("mV")
+            # Rejilla principal (cuadrados de 5mm)
+            major_ticks_x = np.arange(0, num_samples, 0.2 * fs)
+            major_ticks_y = np.arange(np.floor(raw_multilead_np[:, i].min()), np.ceil(raw_multilead_np[:, i].max()), 0.5)
+            ax.set_xticks(major_ticks_x)
+            ax.set_yticks(major_ticks_y)
+            ax.grid(which='major', linestyle='-', linewidth='0.5', color='red')
+            # Rejilla secundaria (cuadrados de 1mm)
+            minor_ticks_x = np.arange(0, num_samples, 0.04 * fs)
+            minor_ticks_y = np.arange(np.floor(raw_multilead_np[:, i].min()), np.ceil(raw_multilead_np[:, i].max()), 0.1)
+            ax.set_xticks(minor_ticks_x, minor=True)
+            ax.set_yticks(minor_ticks_y, minor=True)
+            ax.grid(which='minor', linestyle=':', linewidth='0.5', color='lightcoral')
+            ax.set_xlim(0, num_samples - 1)
+            # Etiquetas de tiempo solo en la última fila
+            if i // 3 == 3:
+                ax.set_xlabel(f"Tiempo (s) - {mm_per_second} mm/s")
+            else:
+                ax.set_xticklabels([])
+        # Eliminar subplots vacíos si hay menos de 12 derivadas
+        for j in range(leads_to_plot, 12):
+            fig.delaxes(axes[j // 3, j % 3])
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        plt.savefig(ecg_12leads_plot_path, format="png", dpi=300, bbox_inches='tight', pad_inches=0)
+        plt.close()
+        print(f"{Colors.BLUE}Gráfico de 12 derivaciones guardado en: {ecg_12leads_plot_path}{Colors.ENDC}")
+    # --- FIN NUEVO ---
+
     # Realiza la predicción por partes y obtiene la lista de predicciones y la cadena de resultados
     # predictByPart ahora devolverá también las rutas de los gráficos de segmentos
     predicted_list_raw, result_string, segment_plot_paths = predictByPart(data, peaks, record_output_dir, record_name_base)
@@ -352,6 +436,7 @@ def predict_and_summarize(data, label, peaks, config, record_name_base):
         'full_ecg_plot_path': full_ecg_plot_path, # Ruta al gráfico completo del ECG
         'ecg_lectura_plot_path': ecg_lectura_plot_path, # NUEVO: Ruta al ECG de lectura
         'ecg_lectura_reducido_plot_path': ecg_lectura_reducido_plot_path, # NUEVO: Ruta al ECG de lectura reducido
+        'ecg_12leads_plot_path': ecg_12leads_plot_path, # NUEVO: Ruta al gráfico de 12 derivaciones
         'segment_plot_paths': segment_plot_paths, # Lista de rutas a los gráficos de segmentos
         'summary': summary_counts, # Asegurarse de que el resumen siempre esté presente
         'cardiac_condition_suggestion': cardiac_condition_suggestion # NUEVO: Sugerencia de afección cardíaca
