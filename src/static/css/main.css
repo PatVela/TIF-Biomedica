@@ -1,16 +1,17 @@
 /* General Body and Container Styles */
 body {
     font-family: 'Inter', sans-serif;
-    background-color: #2b2e3b; /* Dark charcoal */
-    color: #e0e0e0; /* Light gray text */
+    background-color: #1a202c !important; /* Fondo oscuro original */
+    color: #e2e8f0 !important; /* Texto claro original */
 }
 
 .container {
-    background-color: #3b4050; /* Slightly lighter charcoal for containers */
-    border-radius: 8px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-    padding: 25px;
-    margin-bottom: 2rem; /* Add some space at the bottom of the container */
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 1.5rem;
+    background-color: #2d3748 !important; /* Fondo de contenedor más oscuro original */
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 /* Navbar Styles */
@@ -60,17 +61,23 @@ body {
     border-bottom-right-radius: 8px;
 }
 
+.card.summary-card {
+    background-color: #5d6b8a !important; /* Un azul-gris más claro para resaltar el resumen general */
+    border: 2px solid #7fa1e8;
+    box-shadow: 0 2px 8px 0 rgba(127,161,232,0.10);
+}
+
 /* Table Styles */
 .table {
     color: #e0e0e0; /* Light text for tables */
-    background-color: #5d6682; /* Slightly lighter blue-gray for table body */
+    background-color: #4a5568 !important; /* Slightly lighter blue-gray for table body */
     border-radius: 8px; /* Rounded corners for the table itself */
     overflow: hidden; /* Ensures rounded corners clip content */
 }
 
 .table thead th {
-    background-color: #3b4050; /* Match card header background for table headers */
-    color: #f0f0f0;
+    background-color: #2d3748 !important; /* Match card header background for table headers */
+    color: #cbd5e0 !important;
     border-bottom: 1px solid #4a5066; /* Darker border for header */
     padding: 0.75rem 1.25rem;
 }
@@ -88,52 +95,61 @@ body {
 }
 
 /* Button Styles (Bootstrap defaults with adjusted colors) */
-.btn-info {
-    background-color: #5bc0de; /* Brighter blue for info/action buttons */
-    border-color: #5bc0de;
-}
-.btn-info:hover {
-    background-color: #39b3d7;
-    border-color: #39b3d7;
-}
-
-.btn-success {
-    background-color: #5cb85c; /* Standard green for success */
-    border-color: #5cb85c;
-}
-.btn-success:hover {
-    background-color: #4cae4c;
-    border-color: #4cae4c;
+.btn {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    font-weight: 700;
+    color: #fff;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition-property: all;
+    transition-duration: 300ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.btn-primary {
+    background-color: #2563eb !important;
+}
+.btn-primary:hover {
+    background-color: #1d4ed8 !important;
+}
 .btn-secondary {
-    background-color: #6c757d; /* Standard gray for secondary */
-    border-color: #6c757d;
+    background-color: #4b5563 !important;
 }
 .btn-secondary:hover {
-    background-color: #5a6268;
-    border-color: #5a6268;
-}
-
-.btn-outline-info {
-    color: #5bc0de;
-    border-color: #5bc0de;
-}
-.btn-outline-info:hover {
-    background-color: #5bc0de;
-    color: #fff;
+    background-color: #374151 !important;
 }
 
 /* Custom file input adjustments for dark theme */
 .custom-file-label {
-    background-color: #5d6682; /* Background for file input label */
-    color: #e0e0e0;
-    border: 1px solid #4a5066;
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 1;
+    height: calc(2.25rem + 2px);
+    padding: 0.375rem 0.75rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #495057;
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 .custom-file-label::after {
-    background-color: #4a5066; /* Background for 'Browse' button */
-    border-left: 1px solid #5d6682;
-    color: #e0e0e0;
+    content: "Explorar";
+    background-color: #4a5568;
+    color: #e2e8f0;
+    border-left: 1px solid #2d3748;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0 0.25rem 0.25rem 0;
+    margin-left: 0.75rem;
 }
 
 /* Loader Styles */
@@ -153,74 +169,134 @@ body {
 
 /* Collapsible Buttons and Content */
 .collapsible {
-    background-color: #5d6682; /* Similar to table body for consistency */
-    color: #e0e0e0;
+    background-color: #5d6b8a; /* Más claro que el card, para resaltar */
+    color: #fff;
     cursor: pointer;
     padding: 12px 18px;
     width: 100%;
-    border: none;
+    border: none; /* Quitar borde */
     text-align: left;
     outline: none;
     font-size: 1.1em;
     font-weight: 600;
-    transition: background-color 0.3s ease;
-    border-radius: 0.25rem; /* Bootstrap's default button border-radius */
-    margin-top: 1rem; /* Space above */
-    display: flex; /* For flexible content and icon positioning */
+    transition: background-color 0.3s, box-shadow 0.3s;
+    border-radius: 0.5rem;
+    margin-top: 1rem;
+    display: flex;
     align-items: center;
     justify-content: space-between;
+    box-shadow: 0 2px 8px 0 rgba(127,161,232,0.13), 0 1.5px 4px 0 rgba(0,0,0,0.10);
+}
+.collapsible.active, .collapsible:focus, .collapsible:hover {
+    background-color: #7fa1e8;
+    color: #fff;
+    box-shadow: 0 4px 16px 0 rgba(127,161,232,0.18), 0 2px 8px 0 rgba(0,0,0,0.13);
 }
 .collapsible::after {
-    content: '\002B'; /* Unicode for a plus sign */
+    content: '\002B';
     font-size: 0.9em;
-    color: #e0e0e0;
+    color: #fff;
     float: right;
     margin-left: 5px;
-    transition: transform 0.3s ease;
+    transition: transform 0.3s;
 }
 .collapsible.active::after {
-    content: '\2212'; /* Unicode for a minus sign */
-    transform: rotate(0deg); /* No rotation needed for plus/minus */
+    content: '\2212';
+    transform: rotate(0deg);
 }
 .collapsible:hover {
     background-color: #4a5066;
 }
 
 .content {
-    background-color: #4a5066; /* Matches card body background */
-    padding: 15px; /* Add some padding */
+    background-color: #5d6b8a; /* Más claro que el card, para resaltar el fondo del colapsable */
     border-bottom-left-radius: 8px;
     border-bottom-right-radius: 8px;
-    margin-top: 0; /* No top margin as it's part of the collapsible structure */
+    margin-top: 0;
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s;
+    display: block;
+    padding: 0;
+    box-shadow: 0 2px 8px 0 rgba(127,161,232,0.10);
 }
-/* This class will be toggled by JS to show/hide content */
 .content.show {
-    display: block; /* Ensure it's block when shown */
+    max-height: 2000px; /* Suficiente para la mayoría de los contenidos */
+    padding: 15px; /* Solo cuando está abierto */
+    box-shadow: 0 4px 16px 0 rgba(127,161,232,0.13);
 }
 
+/* --- Estilos específicos migrados desde index.html --- */
 
-/* Styles for Plot Images */
-.segment-image {
-    max-width: 100%;
-    height: auto;
-    border: 1px solid #3b4050; /* Border color matching container */
-    border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+/* Tablas de predicción detallada y media */
+#detailedPredictionsTable tbody tr td {
+    color: #93c5fd;
+}
+#detailedPredictionsTable tbody tr:nth-child(odd) td {
+    color: #67e8f9;
+}
+#averagePredictionTable tbody tr td {
+    color: #93c5fd;
+}
+#averagePredictionTable tbody tr:nth-child(odd) td {
+    color: #67e8f9;
 }
 
-/* Flexbox for Segment Plots Container */
-.d-flex.flex-wrap.justify-content-center {
-    padding-top: 10px;
-    padding-bottom: 10px;
-    gap: 15px; /* Space between images */
-}
-
-/* Footer Styles */
-footer {
-    background-color: #21242e; /* Match navbar background */
-    color: #b0b0b0; /* Slightly darker text for footer */
-    border-top: 1px solid #3b4050;
-    padding: 1rem 0;
+/* Barra de progreso */
+.progress-section {
+    width: 100%;
+    margin-top: 20px;
     text-align: center;
-    margin-top: 2rem; /* Ensure space above footer */
+}
+.progress-bar-container {
+    width: 80%;
+    background-color: #e0e0e0;
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 10px auto;
+    height: 25px;
+}
+.progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background-color: #28a745;
+    text-align: center;
+    color: white;
+    line-height: 25px;
+    transition: width 0.4s ease-in-out;
+}
+.progress-text {
+    font-size: 1.1em;
+    color: #ecf0f1;
+    margin-top: 5px;
+}
+
+/* Responsividad de imágenes de segmento */
+.segment-image {
+    width: 100%;
+    max-width: 300px;
+    height: auto;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+    border: 1px solid #6b7280;
+}
+@media (min-width: 640px) {
+    .segment-image {
+        width: calc(50% - 0.5rem);
+    }
+}
+@media (min-width: 768px) {
+    .segment-image {
+        width: calc(33.333% - 0.666rem);
+    }
+}
+
+/* Contenido interno de colapsables para imágenes */
+.collapsible-inner-content {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
 }

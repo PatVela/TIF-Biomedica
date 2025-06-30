@@ -46,8 +46,8 @@ app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024 # Permite archivos hasta 10
 # Define el número máximo de puntos de datos de la señal ECG que se procesarán.
 # Este valor DEBE coincidir con lo que tu modelo puede manejar sin agotar la memoria
 # o causar otros problemas de rendimiento. Ajusta este valor con precaución.
-MAX_ECG_SIGNAL_POINTS = 9001 # Valor duplicado de 9001 a 18002
-# Si tu modelo puede manejar señales más largas, puedes aumentar este valor.
+MAX_ECG_SIGNAL_POINTS = 18002
+# Si el modelo puede manejar señales más largas, es posible aumentar este valor.
 # Por ejemplo, para 30,000 puntos: MAX_ECG_SIGNAL_POINTS = 30000
 
 
@@ -71,9 +71,9 @@ app.add_url_rule(
     view_func=lambda filename: send_from_directory(app.config['RESULTS_FOLDER'], filename)
 )
 
-print('Abrir http://127.0.0.1:5002/')
+print('Abrir http://localhost:5002/')
 
-def model_predict(img_path, original_label=None): # Añadido parámetro original_label con valor por defecto None
+def model_predict(img_path, original_label=None, patient_name="Desconocido", patient_age="Desconocido", patient_sex="Desconocido", target_lead_index=1): # Añadidos parámetros de paciente
     """
     Realiza la predicción sobre un archivo de imagen subido.
     Genera el gráfico completo,
@@ -83,38 +83,82 @@ def model_predict(img_path, original_label=None): # Añadido parámetro original
         img_path (str): La ruta del archivo de imagen subido.
         original_label (str, optional): La etiqueta original del registro, si está disponible.
                                         Se pasa a predict_and_summarize. Por defecto, None.
+        patient_name (str, optional): Nombre del paciente. Por defecto "Desconocido".
+        patient_age (str, optional): Edad del paciente. Por defecto "Desconocido".
+        patient_sex (str, optional): Sexo del paciente. Por defecto "Desconocido".
+        target_lead_index (int, optional): Índice de la derivación a seleccionar para la predicción
+                                            cuando hay múltiples derivaciones. Por defecto, 1 (segunda derivación).
 
     Returns:
         dict: Un diccionario con los detalles de la predicción,
               incluyendo las rutas a los gráficos generados y
               las probabilidades estructuradas.
     """
-    # Cargar datos desde el archivo de imagen
+    # Cargar datos desde el archivo de imagen (en este contexto, un CSV)
     sampling_rate, data_signal_only = uploadedData(img_path, csvbool=True)
 
-    selected_signal = data_signal_only
-
-    # If data_signal_only is 2D (multiple leads):
+    print(f"DEBUG: img_path: {img_path}")
+    print(f"DEBUG: data_signal_only shape: {data_signal_only.shape}")
+    
+    # Determinar qué derivación seleccionar
+    selected_signal = None
+    selected_lead_name = "Desconocida" # Para depuración
     if data_signal_only.ndim == 2:
-        if data_signal_only.shape[1] > 1:
-            # Prioritize selecting the second lead (index 1) for processing.
-            selected_signal = data_signal_only[:, 1]
-            print(f"Información: Se detectaron múltiples derivaciones en el CSV. Seleccionando la segunda derivación (índice 1) para procesamiento por defecto.")
-        else:
-            # If there's only one column (e.g., a 2D array with shape (N, 1)), use that.
-            selected_signal = data_signal_only[:, 0]
-            print(f"Información: Se detectó una sola derivación en el CSV. Seleccionando la primera derivación (índice 0) para procesamiento.")
-    elif data_signal_only.ndim != 1:
-        # Handle unexpected data dimensions (e.g., 3D or empty)
-        print(f"Error: Dimensiones de la señal inesperadas: {data_signal_only.shape}. Intentando aplanar a 1D.")
-        selected_signal = data_signal_only.flatten() # Ensure it's 1D for preprocess
+        # Si es un DataFrame de pandas con columnas, intentar usar el nombre de columna 'MLII' o 'II'
+        if hasattr(data_signal_only, 'columns'):
+            print(f"DEBUG: Nombres de columnas en CSV completo: {data_signal_only.columns.tolist()}")
+            if 'MLII' in data_signal_only.columns:
+                selected_signal = data_signal_only['MLII'].values
+                selected_lead_name = 'MLII'
+                print(f"Información: Se detectaron múltiples derivaciones. Seleccionando la derivación 'MLII'.")
+            elif 'II' in data_signal_only.columns:
+                selected_signal = data_signal_only['II'].values
+                selected_lead_name = 'II'
+                print(f"Información: Se detectaron múltiples derivaciones. Seleccionando la derivación 'II'.")
+            else:
+                # Si no se encontraron MLII/II por nombre de columna, usar por índice
+                if target_lead_index < data_signal_only.shape[1]:
+                    selected_signal = data_signal_only[:, target_lead_index]
+                    selected_lead_name = f'Índice {target_lead_index}'
+                    print(f"Información: Se detectaron múltiples derivaciones. No se encontró 'MLII' o 'II' por nombre. Seleccionando la derivación en el índice {target_lead_index}.")
+                else:
+                    selected_signal = data_signal_only[:, 0]
+                    selected_lead_name = f'Índice 0 (por defecto, índice objetivo fuera de límites)'
+                    print(f"Advertencia: El índice de derivación objetivo ({target_lead_index}) está fuera de los límites. Seleccionando la primera derivación (índice 0) por defecto.")
+        else: # Si es un numpy array 2D sin nombres de columna
+            if target_lead_index < data_signal_only.shape[1]:
+                selected_signal = data_signal_only[:, target_lead_index]
+                selected_lead_name = f'Índice {target_lead_index}'
+                print(f"Información: Se detectaron múltiples derivaciones (array NumPy). Seleccionando la derivación en el índice {target_lead_index}.")
+            else:
+                selected_signal = data_signal_only[:, 0]
+                selected_lead_name = f'Índice 0 (por defecto, índice objetivo fuera de límites)'
+                print(f"Advertencia: El índice de derivación objetivo ({target_lead_index}) está fuera de los límites. Seleccionando la primera derivación (índice 0) por defecto.")
 
+    elif data_signal_only.ndim == 1:
+        # Si ya es un array 1D (una sola derivación)
+        selected_signal = data_signal_only
+        selected_lead_name = 'Única derivación disponible'
+        print(f"Información: Se detectó una sola derivación en el CSV. Usando la única derivación disponible.")
+    else:
+        # Manejar dimensiones de datos inesperadas (ej. 3D o vacío)
+        print(f"Error: Dimensiones de la señal inesperadas: {data_signal_only.shape}. Intentando aplanar a 1D.")
+        selected_signal = data_signal_only.flatten() # Asegurar que sea 1D para preprocess
+        selected_lead_name = 'Aplanado (dimensión inesperada)'
+
+    if selected_signal is None or selected_signal.size == 0:
+        print("Error: No se pudo seleccionar una señal válida para preprocesamiento.")
+        return {} # Retorna un diccionario vacío o maneja el error apropiadamente
+
+    print(f"DEBUG: Derivación seleccionada para preprocesamiento: {selected_lead_name}")
+    print(f"DEBUG: Shape final de selected_signal para preprocesamiento: {selected_signal.shape}")
+    print(f"DEBUG: Primeros 10 puntos de selected_signal: {selected_signal[:10]}") # Imprimir primeros puntos para comparar
 
     # Asignar el sampling_rate a la configuración antes de preprocess
     config = get_config()
     config.sample_rate = sampling_rate # Asigna el sampling rate leído del CSV
 
-    size = len(selected_signal) # Use selected_signal for size and truncation
+    size = len(selected_signal) # Usar selected_signal para el tamaño y truncamiento
     if size > MAX_ECG_SIGNAL_POINTS: # Usar la constante definida globalmente
         print(f"Advertencia: La señal de ECG tiene {size} puntos, se truncará a {MAX_ECG_SIGNAL_POINTS} puntos para la predicción.")
         size = MAX_ECG_SIGNAL_POINTS
@@ -122,7 +166,7 @@ def model_predict(img_path, original_label=None): # Añadido parámetro original
 
     # Preprocesar los datos y encontrar los picos
     # preprocess ahora espera el sampling rate dentro del objeto config
-    data_processed, peaks = preprocess(selected_signal, config) # Pass selected_signal
+    data_processed, peaks = preprocess(selected_signal, config) # Pasar selected_signal
 
     # Extraer el nombre base del archivo subido para usarlo como nombre de carpeta del registro
     record_name_base = os.path.splitext(os.path.basename(img_path))[0]
@@ -130,6 +174,11 @@ def model_predict(img_path, original_label=None): # Añadido parámetro original
     # Llamar a predict_and_summarize que ahora devuelve un diccionario completo de resumen.
     # Usar el original_label pasado como parámetro. Si es None, predict_and_summarize lo manejará.
     prediction_summary_data = predict_and_summarize(data_processed, original_label, peaks, config, record_name_base)
+
+    # Añadir información del paciente a los datos de resumen de predicción
+    prediction_summary_data['patient_name'] = patient_name
+    prediction_summary_data['patient_age'] = patient_age
+    prediction_summary_data['patient_sex'] = patient_sex
 
     return prediction_summary_data
 
@@ -216,93 +265,108 @@ def upload():
     Maneja las solicitudes de subida de archivos para la predicción.
     """
     if request.method == 'POST':
-        # Obtener el archivo de la solicitud POST
         if 'file' not in request.files:
             return jsonify({'error': 'No file part in the request'}), 400
         f = request.files['file']
         if f.filename == '':
             return jsonify({'error': 'No selected file'}), 400
-
         if f:
-            # Guardar el archivo en ./uploads de forma segura
-            # Usa la ruta configurada en app.config['UPLOAD_FOLDER']
-            mkdir_recursive(app.config['UPLOAD_FOLDER']) # Asegurarse de que el directorio 'uploads' exista
-
+            mkdir_recursive(app.config['UPLOAD_FOLDER'])
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(f.filename))
             f.save(file_path)
-
-            # Extraer el nombre base del archivo CSV subido
-            file_base_name = os.path.splitext(os.path.basename(file_path))[0]
-            # Ruta al posible archivo JSON de metadatos (original_label)
-            metadata_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{file_base_name}.json")
-
-            extracted_original_label = None
+            uploaded_filename_base = os.path.splitext(os.path.basename(file_path))[0]
+            cleaned_filename_base_temp = re.sub(r'\(\d+\)$|_\d+$', '', uploaded_filename_base)
+            json_base_name = cleaned_filename_base_temp
+            if cleaned_filename_base_temp.endswith('_Completo'):
+                json_base_name = cleaned_filename_base_temp.replace('_Completo', '')
+            metadata_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{json_base_name}.json")
+            extracted_original_label = "Desconocida"
+            extracted_patient_name = "Desconocido"
+            extracted_patient_age = "Desconocido"
+            extracted_patient_sex = "Desconocido"
             if os.path.exists(metadata_file_path):
+                print(f"DEBUG: Found metadata JSON at: {metadata_file_path}")
                 try:
                     with open(metadata_file_path, 'r') as mf:
                         metadata = json.load(mf)
-                        extracted_original_label = metadata.get("original_label")
+                        extracted_original_label = metadata.get("original_label", "Desconocida")
+                        extracted_patient_name = metadata.get("patient_name", "Desconocido")
+                        extracted_patient_age = metadata.get("patient_age", "Desconocido")
+                        extracted_patient_sex = metadata.get("patient_sex", "Desconocido")
+                    print(f"DEBUG: Metadata loaded - Label: {extracted_original_label}, Name: {extracted_patient_name}, Age: {extracted_patient_age}, Sex: {extracted_patient_sex}")
                 except json.JSONDecodeError as e:
-                    print(f"Error decodificando el JSON de metadatos para {file_base_name}.json: {e}")
-                finally:
-                    # Limpiar el archivo de metadatos después de leerlo
+                    print(f"Error decodificando el JSON de metadatos para {json_base_name}.json: {e}")
+            else:
+                print(f"DEBUG: Metadata JSON NOT found at: {metadata_file_path}")
+            # Lógica para asignar nombres predeterminados si es "Desconocido"
+            if extracted_patient_name == "Desconocido":
+                if extracted_patient_age != "Desconocido":
                     try:
-                        os.remove(metadata_file_path)
-                    except OSError as e:
-                        print(f"Error al eliminar el archivo de metadatos {metadata_file_path}: {e}")
-
-            # Realizar la predicción utilizando la función model_predict, pasando la etiqueta original
-            prediction_summary_data = model_predict(file_path, extracted_original_label)
-
-            # Preparar los datos para la respuesta JSON
+                        age_int = int(extracted_patient_age)
+                        if age_int < 18:
+                            if extracted_patient_sex == 'M':
+                                extracted_patient_name = "Johnie Doe"
+                            elif extracted_patient_sex == 'F':
+                                extracted_patient_name = "Janie Doe"
+                            else:
+                                extracted_patient_name = "Baby Doe"
+                        else:
+                            if extracted_patient_sex == 'M':
+                                extracted_patient_name = "John Doe"
+                            elif extracted_patient_sex == 'F':
+                                extracted_patient_name = "Jane Doe"
+                            else:
+                                extracted_patient_name = "A. N. Other"
+                    except ValueError:
+                        if extracted_patient_sex == 'M':
+                            extracted_patient_name = "John Doe"
+                        elif extracted_patient_sex == 'F':
+                            extracted_patient_name = "Jane Doe"
+                        else:
+                            extracted_patient_name = "A. N. Other"
+                else:
+                    if extracted_patient_sex == 'M':
+                        extracted_patient_name = "John Doe"
+                    elif extracted_patient_sex == 'F':
+                        extracted_patient_name = "Jane Doe"
+                    else:
+                        extracted_patient_name = "A. N. Other"
+            print(f"DEBUG final patient info before model_predict: Name={extracted_patient_name}, Age={extracted_patient_age}, Sex={extracted_patient_sex}")
+            prediction_summary_data = model_predict(
+                file_path,
+                original_label=extracted_original_label,
+                patient_name=extracted_patient_name,
+                patient_age=extracted_patient_age,
+                patient_sex=extracted_patient_sex
+            )
             predictions_for_json = []
             segment_plot_urls = []
-
-            # Helper function to remove the base results folder prefix
             def get_relative_path_for_url_for(full_path, base_folder_name):
                 if full_path and full_path.startswith(base_folder_name + os.sep):
                     return full_path[len(base_folder_name + os.sep):]
                 return full_path
-
-            # Las rutas de los plots ya son relativas a 'resultados/'
-            # directamente desde predict.py. No necesitamos os.path.basename(os.path.dirname(...))
-            # para construir la URL, solo usamos la ruta tal cual se devuelve.
-
             full_ecg_plot_url = url_for('results_static', filename=get_relative_path_for_url_for(prediction_summary_data['full_ecg_plot_path'], app.config['RESULTS_FOLDER'])) \
                                         if prediction_summary_data.get('full_ecg_plot_path') else None
-
-            # Obtener la URL para el gráfico ECG_Lectura
             ecg_lectura_plot_url = url_for('results_static', filename=get_relative_path_for_url_for(prediction_summary_data['ecg_lectura_plot_path'], app.config['RESULTS_FOLDER'])) \
                                        if prediction_summary_data.get('ecg_lectura_plot_path') else None
-
-            # Obtener la URL para el gráfico ECG_Lectura_Reducido (NUEVA LÍNEA)
             ecg_lectura_reducido_plot_url = url_for('results_static', filename=get_relative_path_for_url_for(prediction_summary_data['ecg_lectura_reducido_plot_path'], app.config['RESULTS_FOLDER'])) \
                                                  if prediction_summary_data.get('ecg_lectura_reducido_plot_path') else None
-
-            # URLs para los segmentos y formateo de probabilidades
             for segment_data in prediction_summary_data['predictions_detailed']:
-                plot_path_relative_to_results = segment_data.get('plot_path') # Esto ya es relativo a 'resultados/'
+                plot_path_relative_to_results = segment_data.get('plot_path')
                 if plot_path_relative_to_results:
                     segment_url = url_for('results_static', filename=get_relative_path_for_url_for(plot_path_relative_to_results, app.config['RESULTS_FOLDER']))
                     segment_plot_urls.append(segment_url)
                 else:
-                    segment_plot_urls.append(None) # O manejar como un error
-
-                # Formatear el array completo de probabilidades a un string legible.
-                # Se mostrarán como porcentajes con 2 decimales para mayor legibilidad.
+                    segment_plot_urls.append(None)
                 all_probs_formatted = [f"{p*100:.2f}%" for p in segment_data['all_probs_array']]
-
                 predictions_for_json.append({
                     'class': segment_data['class'],
-                    'probability': segment_data['probability'], # Probabilidad de la clase predicha (ej: "74.2%")
-                    'all_probs_string': " | ".join(all_probs_formatted) # String de todas las probabilidades formateadas
+                    'probability': segment_data['probability'],
+                    'all_probs_string': " | ".join(all_probs_formatted)
                 })
-
-            # Crear el objeto JSON de respuesta
             response_data = {
                 'total_parts': len(predictions_for_json),
-                'predictions': predictions_for_json, # Lista de diccionarios con clase, prob de la clase, y todas las probs en string
-                # 'summary' ahora viene directamente de prediction_summary_data
+                'predictions': predictions_for_json,
                 'summary': {
                     'N': prediction_summary_data['summary']['N'] if 'N' in prediction_summary_data['summary'] else 0,
                     'Ventricular': prediction_summary_data['summary']['Ventricular'] if 'Ventricular' in prediction_summary_data['summary'] else 0,
@@ -318,24 +382,22 @@ def upload():
                 'third_probable_class': prediction_summary_data.get('third_probable_class'),
                 'third_probable_certainty': prediction_summary_data.get('third_probable_certainty'),
                 'original_label': prediction_summary_data.get('original_label'),
-                'average_probabilities': prediction_summary_data.get('average_probabilities'), # Array de probabilidades promedio
+                'average_probabilities': prediction_summary_data.get('average_probabilities'),
                 'full_ecg_plot_url': full_ecg_plot_url,
-                'ecg_lectura_plot_url': ecg_lectura_plot_url, # Añadido
-                'ecg_lectura_reducido_plot_url': ecg_lectura_reducido_plot_url, # NUEVA LÍNEA: Añadido al JSON
+                'ecg_lectura_plot_url': ecg_lectura_plot_url,
+                'ecg_lectura_reducido_plot_url': ecg_lectura_reducido_plot_url,
                 'segment_plot_urls': segment_plot_urls,
-                'cardiac_condition_suggestion': prediction_summary_data.get('cardiac_condition_suggestion') # Añadido
+                'cardiac_condition_suggestion': prediction_summary_data.get('cardiac_condition_suggestion'),
+                'patient_name': prediction_summary_data.get('patient_name'),
+                'patient_age': prediction_summary_data.get('patient_age'),
+                'patient_sex': prediction_summary_data.get('patient_sex')
             }
-
-            # Eliminar el archivo después del análisis para limpiar el directorio de subidas
             try:
                 os.remove(file_path)
             except OSError as e:
                 print(f"Error al eliminar el archivo {file_path}: {e}")
-
-            # Enviar la respuesta como JSON
             return jsonify(response_data)
-
-    return None # Si el método no es POST o no se sube ningún archivo válido
+    return None
 
 @app.route('/download_ecg_results/<record_name_base>', methods=['GET'])
 def download_ecg_results(record_name_base):
@@ -359,7 +421,7 @@ def download_ecg_results(record_name_base):
 
     # Enviar el archivo ZIP para descarga
     try:
-        return send_file(zip_path, as_attachment=True, download_name=f'{record_name_base}_Results.zip')
+        return send_file(zip_path, as_attachment=True, download_name=f'{record_name_base}_Resultados.zip')
     except Exception as e:
         print(f"Error al enviar el archivo ZIP: {e}")
         return "Error al descargar el archivo.", 500
@@ -394,133 +456,66 @@ def format_ecg_to_csv():
     temp_wfdb_dir = os.path.join(upload_dir, temp_dir_name)
     mkdir_recursive(temp_wfdb_dir)
 
-    file_base_name = None
-    hea_file_found = False
-    mat_file_found = False
-    dat_file_found = False
-
     csv_file_path = None
-    metadata_file_path = None # Inicializar la ruta del archivo de metadatos
-
-    for uploaded_file in uploaded_files:
-        if uploaded_file.filename == '':
-            continue
-
-        original_filename = secure_filename(uploaded_file.filename)
-        file_extension = os.path.splitext(original_filename)[1].lower()
-        current_file_base_name = os.path.splitext(original_filename)[0]
-
-        if file_base_name is None:
-            file_base_name = current_file_base_name
-        elif file_base_name != current_file_base_name:
-            shutil.rmtree(temp_wfdb_dir)
-            return jsonify({'error': 'Todos los archivos WFDB deben tener el mismo nombre base (ej. record.mat y record.hea, o record.dat y record.hea).'}), 400
-
-        temp_file_path = os.path.join(temp_wfdb_dir, original_filename)
-        uploaded_file.save(temp_file_path)
-
-        if file_extension == '.hea':
-            hea_file_found = True
-        elif file_extension == '.mat':
-            mat_file_found = True
-        elif file_extension == '.dat':
-            dat_file_found = True
-    
-    # Validar que se haya subido un archivo .hea junto con un .mat o .dat
-    if not hea_file_found or (not mat_file_found and not dat_file_found):
-        shutil.rmtree(temp_wfdb_dir)
-        return jsonify({'error': 'Para formatear un ECG, se requiere un par de archivos: un archivo .hea y un archivo de datos WFDB (.mat o .dat) con el mismo nombre base.'}), 400
-
-
-    signal_data = None
-    sampling_rate = None
-    record_name_only = os.path.splitext(file_base_name)[0] # Base name without extension
-    original_label = "No disponible" # Valor por defecto si no se encuentra etiqueta
+    metadata_file_path = None
 
     try:
+        # Validación y guardado de archivos
+        file_base_name, hea_file_found, mat_file_found, dat_file_found = _validate_and_prepare_wfdb_files(uploaded_files, temp_wfdb_dir)
+        if not hea_file_found or (not mat_file_found and not dat_file_found):
+            shutil.rmtree(temp_wfdb_dir)
+            return jsonify({'error': 'Para formatear un ECG, se requiere un par de archivos: un archivo .hea y un archivo de datos WFDB (.mat o .dat) con el mismo nombre base.'}), 400
+
+        record_name_only = os.path.splitext(file_base_name)[0]
         record = wfdb.rdrecord(os.path.join(temp_wfdb_dir, record_name_only))
-        signal_data = record.p_signal # Obtener la señal principal (muestras, canales)
+        signal_data = record.p_signal
         sampling_rate = record.fs if hasattr(record, 'fs') else None
 
-        # 1. Intenta extraer de 'Diagnosis:' en los comentarios
-        if hasattr(record, 'comments') and record.comments:
-            for comment in record.comments:
-                if "Diagnosis:" in comment:
-                    extracted_diagnosis = comment.split("Diagnosis:", 1)[1].strip()
-                    if extracted_diagnosis: # Asegura que no sea una cadena vacía
-                        original_label = extracted_diagnosis
-                        break # Si se encontró un diagnóstico, salir del bucle
+        # Extraer metadatos del paciente
+        original_label, patient_name, patient_age, patient_sex = _extract_patient_metadata(record)
+        print(f"DEBUG extracted patient info: Age={patient_age}, Sex={patient_sex}, Name={patient_name}")
 
-        # 2. Si no se encontró un diagnóstico específico, usar el record_name como fallback
-        if original_label == "No disponible" and record.record_name and record.record_name.strip():
-            original_label = record.record_name.strip()
-
-        # Si signal_data es 2D (múltiples derivaciones), seleccionar MLII o la segunda
+        selected_lead_name_for_save = "N/A (ya es 1D)"
         if signal_data.ndim == 2:
-            lead_index = 1 # Por defecto, la segunda derivación
+            print(f"DEBUG: Nombres de derivación en el archivo WFDB para guardar CSV simple: {record.sig_name if hasattr(record, 'sig_name') else 'No disponibles'}")
+            lead_index = 1
             if hasattr(record, 'sig_name'):
                 signal_names = record.sig_name
                 try:
-                    # Busca la derivación 'MLII' si existe
                     lead_index = [name.upper() for name in signal_names].index('MLII')
-                    print(f"Derivación 'MLII' encontrada en el índice {lead_index}.")
+                    print(f"Derivación 'MLII' encontrada en el índice {lead_index} para guardar CSV simple.")
                 except ValueError:
-                    print("Advertencia: No se encontró la derivación 'MLII'. Usando la segunda derivación (índice 1) por defecto.")
-
-            # Asegurarse de que el índice de la derivación sea válido
-            if lead_index >= signal_data.shape[1]: # Comprobar contra el número de columnas (derivaciones)
-                print(f"Error: El índice de la derivación ({lead_index}) está fuera de los límites. Usando la primera derivación (índice 0).")
+                    print("Advertencia: No se encontró la derivación 'MLII' para guardar CSV simple. Usando la segunda derivación (índice 1) por defecto.")
+            if lead_index >= signal_data.shape[1]:
+                print(f"Error: El índice de la derivación ({lead_index}) está fuera de los límites para guardar CSV simple. Usando la primera derivación (índice 0).")
                 lead_index = 0
-            selected_lead_data = signal_data[:, lead_index] # Seleccionar la derivación
+            selected_lead_data = signal_data[:, lead_index]
+            selected_lead_name_for_save = record.sig_name[lead_index] if hasattr(record, 'sig_name') else f'Índice {lead_index}'
         else:
-            selected_lead_data = signal_data # Si ya es 1D, usar directamente
-
-        signal_data = selected_lead_data # Usar la derivación seleccionada como signal_data
+            selected_lead_data = signal_data
+        signal_data = selected_lead_data
+        print(f"DEBUG: Derivación seleccionada para guardar en CSV simple: {selected_lead_name_for_save}")
+        print(f"DEBUG: Primeros 10 puntos de la señal guardada en CSV simple: {signal_data[:10]}")
 
         if signal_data is None or signal_data.size == 0:
             raise ValueError("Los datos de señal no pudieron ser leídos o están vacíos.")
-
-        # Aplanar los datos para asegurar que sea una sola columna
         signal_data_flat = signal_data.flatten()
-
-        # Definir la ruta para el archivo CSV de salida
         csv_filename = f"{file_base_name}.csv"
         csv_file_path = os.path.join(upload_dir, csv_filename)
-
-        # Escribir los datos en el archivo CSV, un valor por línea
         with open(csv_file_path, 'w', newline='') as f:
             if sampling_rate is not None:
-                f.write(str(sampling_rate) + '\n')
-            # Usar pandas para escribir la única columna sin encabezado ni índice
+                f.write(f"# Sampling Rate: {sampling_rate}\n")
             pd.DataFrame(signal_data_flat).to_csv(f, index=False, header=False)
-
-        # Guardar metadatos (incluyendo original_label) en un archivo JSON
         metadata_filename = f"{file_base_name}.json"
         metadata_file_path = os.path.join(upload_dir, metadata_filename)
-        with open(metadata_file_path, 'w') as f_meta:
-            json.dump({"original_label": original_label}, f_meta)
-
-        # Enviar el archivo CSV para descarga
+        _save_metadata_json(metadata_file_path, original_label, patient_name, patient_age, patient_sex)
         return send_file(csv_file_path, as_attachment=True, download_name=csv_filename)
-
     except Exception as e:
         print(f"Error al formatear archivo WFDB a CSV: {e}")
-        if os.path.exists(temp_wfdb_dir):
-            shutil.rmtree(temp_wfdb_dir)
+        _cleanup_temp_files(temp_wfdb_dir, csv_file_path)
         return jsonify({'error': f'Error al procesar los archivos WFDB: {str(e)}. Asegúrate de que los archivos sean válidos y correspondan a un mismo registro.'}), 500
     finally:
-        try:
-            if os.path.exists(temp_wfdb_dir):
-                shutil.rmtree(temp_wfdb_dir)
-            # Add cleanup for the generated CSV file
-            if csv_file_path and os.path.exists(csv_file_path):
-                os.remove(csv_file_path)
-            # Add cleanup for the generated metadata JSON file
-            if metadata_file_path and os.path.exists(metadata_file_path):
-                os.remove(metadata_file_path)
-        except OSError as e:
-            print(f"Error al eliminar archivos temporales: {e}")
-
+        _cleanup_temp_files(temp_wfdb_dir, csv_file_path)
 @app.route('/format_ecg_full', methods=['POST'])
 def format_ecg_full_to_csv():
     """
@@ -542,73 +537,28 @@ def format_ecg_full_to_csv():
     temp_wfdb_dir = os.path.join(upload_dir, temp_dir_name)
     mkdir_recursive(temp_wfdb_dir)
 
-    file_base_name = None
-    hea_file_found = False
-    mat_file_found = False
-    dat_file_found = False
-
     csv_file_path = None
-    metadata_file_path = None # Inicializar la ruta del archivo de metadatos
-
-    for uploaded_file in uploaded_files:
-        if uploaded_file.filename == '':
-            continue
-
-        original_filename = secure_filename(uploaded_file.filename)
-        file_extension = os.path.splitext(original_filename)[1].lower()
-        current_file_base_name = os.path.splitext(original_filename)[0]
-
-        if file_base_name is None:
-            file_base_name = current_file_base_name
-        elif file_base_name != current_file_base_name:
-            shutil.rmtree(temp_wfdb_dir)
-            return jsonify({'error': 'Todos los archivos WFDB deben tener el mismo nombre base (ej. record.mat y record.hea, o record.dat y record.hea).'}), 400
-
-        temp_file_path = os.path.join(temp_wfdb_dir, original_filename)
-        uploaded_file.save(temp_file_path)
-
-        if file_extension == '.hea':
-            hea_file_found = True
-        elif file_extension == '.mat':
-            mat_file_found = True
-        elif file_extension == '.dat':
-            dat_file_found = True
-
-    # Validar que se haya subido un archivo .hea junto con un .mat o .dat
-    if not hea_file_found or (not mat_file_found and not dat_file_found):
-        shutil.rmtree(temp_wfdb_dir)
-        return jsonify({'error': 'Para formatear un ECG, se requiere un par de archivos: un archivo .hea y un archivo de datos WFDB (.mat o .dat) con el mismo nombre base.'}), 400
-
-
-    signal_data = None
-    sampling_rate = None
-    signal_names = None # Para almacenar los nombres de las derivaciones
-    record_name_only = os.path.splitext(file_base_name)[0] # Base name without extension
-    original_label = "No disponible" # Valor por defecto si no se encuentra etiqueta
+    metadata_file_path = None
 
     try:
+        # Validación y guardado de archivos
+        file_base_name, hea_file_found, mat_file_found, dat_file_found = _validate_and_prepare_wfdb_files(uploaded_files, temp_wfdb_dir)
+        if not hea_file_found or (not mat_file_found and not dat_file_found):
+            shutil.rmtree(temp_wfdb_dir)
+            return jsonify({'error': 'Para formatear un ECG, se requiere un par de archivos: un archivo .hea y un archivo de datos WFDB (.mat o .dat) con el mismo nombre base.'}), 400
+
+        record_name_only = os.path.splitext(file_base_name)[0]
         record = wfdb.rdrecord(os.path.join(temp_wfdb_dir, record_name_only))
-        signal_data = record.p_signal # Esto es (muestras, canales)
+        signal_data = record.p_signal
         sampling_rate = record.fs if hasattr(record, 'fs') else None
         signal_names = record.sig_name if hasattr(record, 'sig_name') else None
-        
-        # 1. Intenta extraer de 'Diagnosis:' en los comentarios
-        if hasattr(record, 'comments') and record.comments:
-            for comment in record.comments:
-                if "Diagnosis:" in comment:
-                    extracted_diagnosis = comment.split("Diagnosis:", 1)[1].strip()
-                    if extracted_diagnosis: # Asegura que no sea una cadena vacía
-                        original_label = extracted_diagnosis
-                        break # Si se encontró un diagnóstico, salir del bucle
 
-        # 2. Si no se encontró un diagnóstico específico, usar el record_name como fallback
-        if original_label == "No disponible" and record.record_name and record.record_name.strip():
-            original_label = record.record_name.strip()
+        # Extraer metadatos del paciente
+        original_label, patient_name, patient_age, patient_sex = _extract_patient_metadata(record)
+        print(f"DEBUG extracted patient info: Age={patient_age}, Sex={patient_sex}, Name={patient_name}")
 
         if signal_data is None:
-             raise ValueError("No se encontraron datos de señal válidos en el archivo .dat/.hea.")
-
-        # Crear un DataFrame de pandas con los datos de señal
+            raise ValueError("No se encontraron datos de señal válidos en el archivo .dat/.hea.")
         df = pd.DataFrame(signal_data)
         if signal_names: # Asignar nombres de columna si se obtuvieron
             df.columns = signal_names
@@ -617,7 +567,7 @@ def format_ecg_full_to_csv():
 
 
         # Escribir los datos en el archivo CSV
-        csv_filename = f"{file_base_name}_full.csv"
+        csv_filename = f"{file_base_name}_Completo.csv"
         csv_file_path = os.path.join(upload_dir, csv_filename)
 
         with open(csv_file_path, 'w', newline='') as f:
@@ -626,11 +576,10 @@ def format_ecg_full_to_csv():
                 f.write(f"# Sampling Rate: {sampling_rate}\n")
             df.to_csv(f, index=False) # Escribir el DataFrame a CSV con encabezados
 
-        # Guardar metadatos (incluyendo original_label) en un archivo JSON
+        # Guardar metadatos (incluyendo original_label, nombre, edad, sexo) en un archivo JSON
         metadata_filename = f"{file_base_name}.json"
         metadata_file_path = os.path.join(upload_dir, metadata_filename)
-        with open(metadata_file_path, 'w') as f_meta:
-            json.dump({"original_label": original_label}, f_meta)
+        _save_metadata_json(metadata_file_path, original_label, patient_name, patient_age, patient_sex)
 
         # Enviar el archivo CSV para descarga
         return send_file(csv_file_path, as_attachment=True, download_name=csv_filename)
@@ -641,17 +590,140 @@ def format_ecg_full_to_csv():
             shutil.rmtree(temp_wfdb_dir)
         return jsonify({'error': f'Error al procesar los archivos WFDB para formateo completo: {str(e)}. Asegúrate de que los archivos sean válidos y correspondan a un mismo registro.'}), 500
     finally:
-        try:
-            if os.path.exists(temp_wfdb_dir):
-                shutil.rmtree(temp_wfdb_dir)
-            # Add cleanup for the generated CSV file
-            if csv_file_path and os.path.exists(csv_file_path):
-                os.remove(csv_file_path)
-            # Add cleanup for the generated metadata JSON file
-            if metadata_file_path and os.path.exists(metadata_file_path):
-                os.remove(metadata_file_path)
-        except OSError as e:
-            print(f"Error al eliminar archivos temporales: {e}")
+        # Usar la función de limpieza auxiliar para eliminar temporales
+        _cleanup_temp_files(temp_wfdb_dir, csv_file_path)
+
+def _extract_patient_metadata(record):
+    """
+    Extrae metadatos del paciente (diagnóstico, nombre, edad, sexo) de un registro WFDB.
+    Devuelve: original_label, patient_name, patient_age, patient_sex
+    """
+    original_label = "Desconocida"
+    patient_name = "Desconocido"
+    patient_age = "Desconocido"
+    patient_sex = "Desconocido"
+    if hasattr(record, 'comments') and record.comments:
+        for comment in record.comments:
+            if "Diagnosis:" in comment:
+                extracted_diagnosis = comment.split("Diagnosis:", 1)[1].strip()
+                if extracted_diagnosis:
+                    original_label = extracted_diagnosis
+            age_match = re.search(r'Age:\s*(\d+)', comment)
+            if age_match:
+                patient_age = age_match.group(1)
+            sex_match = re.search(r'Sex:\s*(.+)', comment)
+            if sex_match:
+                patient_sex_raw = sex_match.group(1).strip().lower()
+                if patient_sex_raw == 'male':
+                    patient_sex = 'M'
+                elif patient_sex_raw == 'female':
+                    patient_sex = 'F'
+                else:
+                    patient_sex = "Desconocido"
+            name_match = re.search(r'Name:\s*(.+)', comment)
+            if name_match:
+                patient_name = name_match.group(1).strip()
+            if patient_name == "Desconocido":
+                if hasattr(record, 'description') and record.description and "patient" in record.description.lower():
+                    name_from_desc = re.search(r'([A-Za-z\s]+\s[A-Za-z\s]+)', record.description)
+                    if name_from_desc:
+                        patient_name = name_from_desc.group(1).strip()
+                    else:
+                        patient_name = record.description.strip()
+                elif comment and "patient" in comment.lower():
+                    name_from_comment = re.search(r'([A-Za-z\s]+\s[A-Za-z\s]+)', comment)
+                    if name_from_comment:
+                        patient_name = name_from_comment.group(1).strip()
+                    else:
+                        patient_name = "Desconocido" # Mantener como desconocido si no se puede extraer
+    # Lógica para asignar nombres predeterminados si es "Desconocido"
+    if patient_name == "Desconocido":
+        if patient_age != "Desconocido":
+            try:
+                age_int = int(patient_age)
+                if age_int < 18:
+                    if patient_sex == 'M':
+                        patient_name = "Johnie Doe"
+                    elif patient_sex == 'F':
+                        patient_name = "Janie Doe"
+                    else:
+                        patient_name = "Baby Doe"
+                else:
+                    if patient_sex == 'M':
+                        patient_name = "John Doe"
+                    elif patient_sex == 'F':
+                        patient_name = "Jane Doe"
+                    else:
+                        patient_name = "A. N. Other"
+            except ValueError:
+                if patient_sex == 'M':
+                    patient_name = "John Doe"
+                elif patient_sex == 'F':
+                    patient_name = "Jane Doe"
+                else:
+                    patient_name = "A. N. Other"
+        else:
+            if patient_sex == 'M':
+                patient_name = "John Doe"
+            elif patient_sex == 'F':
+                patient_name = "Jane Doe"
+            else:
+                patient_name = "A. N. Other"
+    return original_label, patient_name, patient_age, patient_sex
+
+def _validate_and_prepare_wfdb_files(uploaded_files, temp_wfdb_dir):
+    """
+    Valida y guarda archivos WFDB subidos en un directorio temporal.
+    Devuelve: file_base_name, hea_file_found, mat_file_found, dat_file_found
+    """
+    file_base_name = None
+    hea_file_found = False
+    mat_file_found = False
+    dat_file_found = False
+    for uploaded_file in uploaded_files:
+        if uploaded_file.filename == '':
+            continue
+        original_filename = secure_filename(uploaded_file.filename)
+        file_extension = os.path.splitext(original_filename)[1].lower()
+        current_file_base_name = os.path.splitext(original_filename)[0]
+        if file_base_name is None:
+            file_base_name = current_file_base_name
+        elif file_base_name != current_file_base_name:
+            shutil.rmtree(temp_wfdb_dir)
+            raise ValueError('Todos los archivos WFDB deben tener el mismo nombre base (ej. record.mat y record.hea, o record.dat y record.hea).')
+        temp_file_path = os.path.join(temp_wfdb_dir, original_filename)
+        uploaded_file.save(temp_file_path)
+        if file_extension == '.hea':
+            hea_file_found = True
+        elif file_extension == '.mat':
+            mat_file_found = True
+        elif file_extension == '.dat':
+            dat_file_found = True
+    return file_base_name, hea_file_found, mat_file_found, dat_file_found
+
+def _save_metadata_json(metadata_path, original_label, patient_name, patient_age, patient_sex):
+    """
+    Guarda los metadatos del paciente en un archivo JSON.
+    """
+    with open(metadata_path, 'w') as f_meta:
+        json.dump({
+            "original_label": original_label,
+            "patient_name": patient_name,
+            "patient_age": patient_age,
+            "patient_sex": patient_sex
+        }, f_meta)
+
+def _cleanup_temp_files(temp_wfdb_dir, csv_file_path=None):
+    """
+    Elimina directorios y archivos temporales generados durante el formateo.
+    """
+    try:
+        if os.path.exists(temp_wfdb_dir):
+            shutil.rmtree(temp_wfdb_dir)
+        if csv_file_path and os.path.exists(csv_file_path):
+            os.remove(csv_file_path)
+    except OSError as e:
+        print(f"Error al eliminar archivos temporales: {e}")
 
 if __name__ == '__main__':
     config = get_config()

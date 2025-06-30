@@ -1,261 +1,15 @@
 {% extends "base.html" %} 
 
 {% block content %}
-<style>
-    /* Estilos generales para el cuerpo */
-    body {
-        font-family: 'Inter', sans-serif;
-        background-color: #1a202c; /* Fondo oscuro */
-        color: #e2e8f0; /* Texto claro */
-    }
-    /* Contenedor principal de la aplicación */
-    .container {
-        max-width: 1200px; /* Aumentado para más espacio horizontal */
-        margin: 2rem auto;
-        padding: 1.5rem;
-        background-color: #2d3748; /* Fondo de contenedor más oscuro */
-        border-radius: 0.75rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    }
-    /* Estilos base para botones */
-    .btn {
-        padding-left: 1.5rem; /* px-6 */
-        padding-right: 1.5rem; /* px-6 */
-        padding-top: 0.75rem; /* py-3 */
-        padding-bottom: 0.75rem; /* py-3 */
-        font-weight: 700; /* font-bold */
-        color: #fff; /* text-white */
-        border-radius: 0.5rem; /* rounded-lg */
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
-        transition-property: all;
-        transition-duration: 300ms;
-        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); /* ease-in-out */
-    }
-    /* Estilos específicos para botón primario */
-    .btn-primary {
-        background-color: #2563eb; /* bg-blue-600 */
-    }
-    .btn-primary:hover {
-        background-color: #1d4ed8; /* hover:bg-blue-700 */
-    }
-    /* Estilos específicos para botón secundario */
-    .btn-secondary {
-        background-color: #4b5563; /* bg-gray-600 */
-    }
-    .btn-secondary:hover {
-        background-color: #374151; /* hover:bg-gray-700 */
-    }
-    /* Estilos para el input de archivo */
-    .custom-file {
-        position: relative;
-        display: inline-block;
-        width: 100%;
-        margin-bottom: 1rem; /* mb-4 */
-    }
-    .custom-file-input {
-        position: relative;
-        z-index: 2;
-        width: 100%;
-        height: calc(2.25rem + 2px); /* Altura de Bootstrap input-file */
-        margin: 0;
-        opacity: 0;
-    }
-    .custom-file-label {
-        position: absolute;
-        top: 0;
-        right: 0;
-        left: 0;
-        z-index: 1;
-        height: calc(2.25rem + 2px);
-        padding: 0.375rem 0.75rem;
-        font-weight: 400;
-        line-height: 1.5;
-        color: #495057;
-        background-color: #fff;
-        border: 1px solid #ced4da;
-        border-radius: 0.25rem;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    .custom-file-label::after {
-        content: "Explorar"; /* Texto del botón "Explorar" */
-        background-color: #4a5568; /* Fondo más oscuro para contraste */
-        color: #e2e8f0; /* Texto claro */
-        border-left: 1px solid #2d3748; /* Borde más oscuro */
-        padding: 0.375rem 0.75rem;
-        border-radius: 0 0.25rem 0.25rem 0;
-        margin-left: 0.75rem;
-    }
-    /* Nuevos estilos para el input de archivo con Tailwind */
-    .input-file-tailwind {
-        display: block;
-        width: 100%;
-        font-size: 0.875rem; /* text-sm */
-        color: #94a3b8; /* text-gray-400 */
-    }
-    .input-file-tailwind::file-selector-button {
-        margin-right: 1rem; /* mr-4 */
-        padding-top: 0.5rem; /* py-2 */
-        padding-bottom: 0.5rem; /* py-2 */
-        padding-left: 1rem; /* px-4 */
-        padding-right: 1rem; /* px-4 */
-        border-radius: 9999px; /* rounded-full */
-        border: 0;
-        font-size: 0.875rem; /* text-sm */
-        font-weight: 600; /* font-semibold */
-        background-color: #a855f7; /* bg-purple-500 */
-        color: #fff; /* text-white */
-        cursor: pointer;
-        transition-property: background-color;
-        transition-duration: 300ms;
-        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .input-file-tailwind::file-selector-button:hover {
-        background-color: #9333ea; /* hover:bg-purple-600 */
-    }
-
-    /* Estilos base para tablas */
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 1rem;
-        background-color: #4a5568; /* Fondo de tabla */
-        border-radius: 0.5rem;
-        overflow: hidden; /* Asegura que las esquinas redondeadas sean visibles */
-    }
-    /* Estilos para celdas de encabezado y datos de tabla */
-    th, td {
-        padding: 0.75rem 1rem;
-        text-align: left;
-        border-bottom: 1px solid #2d3748; /* Borde más oscuro */
-    }
-    /* Estilos específicos para encabezados de tabla */
-    th {
-        background-color: #2d3748; /* Fondo de encabezado */
-        color: #cbd5e0; /* Color de texto de encabezado */
-        font-weight: 600;
-        text-transform: uppercase;
-    }
-    /* Estilos para las filas de la tabla de predicciones detalladas */
-    #detailedPredictionsTable tbody tr td { /* Aplicado a todas las celdas de tbody para evitar overrides */
-        color: #93c5fd; /* Azul más claro */
-    }
-    #detailedPredictionsTable tbody tr:nth-child(odd) td {
-        color: #67e8f9; /* Cian más claro */
-    }
-    /* Estilos para las filas de la tabla de media de la predicción */
-    #averagePredictionTable tbody tr td { /* Aplicado a todas las celdas de tbody para evitar overrides */
-        color: #93c5fd; /* Azul más claro */
-    }
-    #averagePredictionTable tbody tr:nth-child(odd) td {
-        color: #67e8f9; /* Cian más claro */
-    }
-
-    /* Estilos para el botón colapsable */
-    .collapsible {
-        background-color: #4a5568;
-        color: #e2e8f0;
-        cursor: pointer;
-        padding: 18px;
-        width: 100%;
-        border: none;
-        text-align: left;
-        outline: none;
-        font-size: 1.125rem; /* text-lg */
-        font-weight: 600;
-        transition: 0.4s;
-        border-radius: 0.5rem;
-        margin-top: 1rem;
-    }
-    /* Estilos para el botón colapsable al estar activo o al pasar el ratón */
-    .active, .collapsible:hover {
-        background-color: #2d3748;
-    }
-    /* Contenido colapsable */
-    .content {
-        padding: 0 18px;
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.2s ease-out;
-        background-color: #2d3748;
-        border-bottom-left-radius: 0.5rem;
-        border-bottom-right-radius: 0.5rem;
-    }
-    /* Contenido interno de los colapsables (para imágenes) */
-    .collapsible-inner-content {
-        padding-top: 1rem;
-        padding-bottom: 1rem;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1rem;
-        justify-content: center;
-    }
-    /* Estilos para las imágenes de segmento */
-    .segment-image {
-        width: 100%; /* Por defecto, ancho completo en pantallas pequeñas */
-        max-width: 300px; /* Ancho máximo para pantallas más grandes */
-        height: auto;
-        border-radius: 0.5rem;
-        box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
-        border: 1px solid #6b7280;
-    }
-    /* Media queries para responsividad de imágenes de segmento */
-    @media (min-width: 640px) { /* Pantallas pequeñas y superiores */
-        .segment-image {
-            width: calc(50% - 0.5rem); /* Dos imágenes por fila, con espacio */
-        }
-    }
-    @media (min-width: 768px) { /* Pantallas medianas y superiores */
-        .segment-image {
-            width: calc(33.333% - 0.666rem); /* Tres imágenes por fila */
-        }
-    }
-
-    /* Estilos para la barra de progreso */
-    .progress-section {
-        width: 100%;
-        margin-top: 20px;
-        text-align: center;
-    }
-
-    .progress-bar-container {
-        width: 80%;
-        background-color: #e0e0e0;
-        border-radius: 5px;
-        overflow: hidden;
-        margin: 10px auto;
-        height: 25px; /* Altura de la barra */
-    }
-
-    .progress-bar-fill {
-        height: 100%;
-        width: 0%;
-        background-color: #28a745; /* Color verde de Bootstrap success */
-        text-align: center;
-        color: white;
-        line-height: 25px; /* Centrar texto verticalmente */
-        transition: width 0.4s ease-in-out; /* Transición suave para el ancho */
-    }
-
-    .progress-text {
-        font-size: 1.1em;
-        color: #ecf0f1;
-        margin-top: 5px;
-    }
-
-</style>
-
 <!-- Jumbotron: Sección de bienvenida y descripción de la aplicación -->
 <div class="jumbotron bg-light text-center" id="mainJumbotron">
     <h1 class="display-4">Clasificador de Latidos ECG</h1>
-    <p class="lead">Cargue un archivo de datos de ECG en formato <strong>.csv</strong> (menor a 25 MB) para analizar y clasificar los tipos de latidos cardíacos.</p>
+    <p class="lead">Cargue un archivo de datos de ECG en formato <strong>.csv</strong> (menor a 100 MB) para analizar y clasificar los tipos de latidos cardíacos.</p>
 </div>
 
 <!-- Contenido principal de la aplicación: leyenda de códigos y formularios de carga -->
 <div class="row" id="mainContentRow">
-    <!-- Columna izquierda: Leyenda de códigos de clasificación -->
+    <!-- Columna izquierda: Leyenda de códigos de clasificación y Datos del Paciente -->
     <div class="col-md-4">
         <div class="card">
             <div class="card-header">
@@ -272,6 +26,20 @@
                         <tr><td><strong>Noise:</strong></td><td>Ruido (sin latido)</td></tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Nuevo botón colapsable para Datos del Paciente -->
+        <div id="patientDataSection" style="display:none;">
+            <button class="collapsible btn btn-info btn-block mt-4" id="patientDataCollapsible">Datos del Paciente</button>
+            <div class="content" id="patientDataContent">
+                <div class="card mt-0"> {# mt-0 para que se pegue al botón colapsable #}
+                    <div class="card-body">
+                        <p id="patientNameResult"></p>
+                        <p id="patientAgeResult"></p>
+                        <p id="patientSexResult"></p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

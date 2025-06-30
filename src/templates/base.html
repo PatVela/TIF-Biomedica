@@ -271,7 +271,7 @@
           <div class="modal-body">
             <p>Siga estos pasos para utilizar el clasificador de ECG:</p>
             <ol>
-              <li>Seleccione un archivo de datos de ECG en formato <strong>.csv</strong>. Asegúrese de que el archivo no exceda los 25 MB.</li>
+              <li>Seleccione un archivo de datos de ECG en formato <strong>.csv</strong>. Asegúrese de que el archivo no exceda los 100 MB.</li>
               <li>Haga clic en "Predecir Ahora!" para iniciar el análisis.</li>
               <li>Los resultados se mostrarán en tablas detalladas.</li>
               <li>En caso de no tener archivo .csv, use la segunda opción de carga y el botón "Formatear ECG a CSV para convertir archivos .mat y .hba (subirlos al mismo tiempo)".</li>
@@ -305,7 +305,7 @@
             <button class="btn btn-collapse" type="button" data-toggle="collapse" data-target="#collapseArchitecture" aria-expanded="true" aria-controls="collapseArchitecture">
               Arquitectura del Modelo
             </button>
-            <div class="collapse show collapse-content" id="collapseArchitecture">
+            <div class="collapse collapse-content" id="collapseArchitecture">
               <p>{{ model_info.architecture_type | safe }}</p> {# Aplicar safe #}
               {# Se cambian las <li> individuales por párrafos para una mejor presentación de bloques de texto #}
               {% for detail in model_info.architecture_details %}

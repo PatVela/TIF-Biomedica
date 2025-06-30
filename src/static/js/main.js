@@ -11,6 +11,9 @@ $(document).ready(function () {
     const mainJumbotron = $('#mainJumbotron'); // Jumbotron principal
     const mainContentRow = $('#mainContentRow'); // Fila principal de contenido
 
+    // NUEVA REFERENCIA: Contenedor de la sección de Datos del Paciente
+    const patientDataSection = $('#patientDataSection'); 
+
     const fullEcgPlotContainer = $('#fullEcgPlotContainer'); // Contenedor para el gráfico ECG completo (no usado directamente en este JS para gráficos, pero mantenido)
     const footerDate = $('#footerDate'); // Elemento de fecha en el pie de página (para Easter Egg)
     const devInfo = $('#devInfo'); // Referencia al elemento "Desarrollado por" (para Easter Egg)
@@ -27,6 +30,9 @@ $(document).ready(function () {
     formatEcgButton.hide();
     formatEcgFullButton.hide(); // Ocultar el nuevo botón también
     ecgFileToFormatLabel.text('Seleccionar archivos ECG para formatear (.mat, .hea, .dat)...');
+
+    // Asegurarse de que la sección de Datos del Paciente esté oculta al cargar la página
+    patientDataSection.hide();
 
 
     // --- EASTER EGG 1: Funcionalidad de Rickroll al hacer clic en la fecha del footer ---
@@ -78,6 +84,9 @@ $(document).ready(function () {
         progressSection.hide();
         progressBarFill.css('width', '0%').text('');
         progressText.text('0%');
+
+        // Oculta la sección de datos del paciente cuando se selecciona un nuevo archivo
+        patientDataSection.hide();
 
         // Asegura que las secciones principales estén visibles
         resultsDiv.show();
@@ -156,7 +165,7 @@ $(document).ready(function () {
     formatEcgButton.on('click', function() {
         const files = ecgFileToFormatInput[0].files; // Obtiene los archivos del input
         if (files.length === 0) {
-            // Muestra un mensaje de advertencia si no se seleccionaron archivos
+            // Muestra un cuadro de mensaje personalizado
             const msgBox = $('<div>').addClass('alert alert-warning').text('Por favor, selecciona al menos un archivo ECG para formatear.');
             resultsDiv.html('');
             resultsDiv.prepend(msgBox);
@@ -395,15 +404,16 @@ $(document).ready(function () {
 
     // --- Funcionalidad de los botones colapsables (para mostrar/ocultar resultados) ---
     $(document).on('click', '.collapsible', function() {
-        $(this).toggleClass("active"); // Alterna la clase 'active' para el estilo
-        var content = $(this).next('.content'); // Obtiene el contenido colapsable siguiente
-        if (content.css('max-height') !== '0px' && content.css('max-height') !== '') {
-            content.css('max-height', '0'); // Si está abierto, lo cierra
-        } else {
-            // Si está cerrado, lo abre estableciendo la altura máxima a su altura de desplazamiento
-            content.css('max-height', content.prop('scrollHeight') + 30 + 'px');
-        }
+        $(this).toggleClass("active");
+        var content = $(this).next('.content');
+        content.toggleClass('show');
     });
+
+    // Inicializa los colapsables cerrados
+    function initCollapsibles() {
+        $('.content').removeClass('show');
+        $('.collapsible').removeClass('active');
+    }
 
     // --- Lógica de Predicción (cuando se sube un archivo CSV) ---
     predictButton.on('click', function () {
@@ -442,6 +452,12 @@ $(document).ready(function () {
             processData: false,
             async: true, // Petición asíncrona
             success: function (data) {
+                // DEBUGGING: Log all received data
+                console.log("Datos recibidos del servidor:", data);
+                console.log("Paciente Nombre (recibido):", data.patient_name);
+                console.log("Paciente Edad (recibida):", data.patient_age);
+                console.log("Paciente Sexo (recibido):", data.patient_sex);
+
                 // En caso de éxito, detiene el progreso y finaliza la barra
                 clearInterval(progressInterval);
                 progressBarFill.css('width', '100%');
@@ -453,6 +469,7 @@ $(document).ready(function () {
                 }, 500);
 
                 // Genera el HTML para mostrar los resultados de la predicción
+                // Se eliminaron los elementos <p> de datos del paciente de aquí, ya que están en index.html
                 let resultsHtml = `
                     <button class="collapsible btn btn-info btn-block mt-4">Análisis por Segmento</button>
                     <div class="content" id="detailedPredictionsContent">
@@ -487,18 +504,15 @@ $(document).ready(function () {
                             </table>
                     </div>
 
-                    <button class="collapsible btn btn-info btn-block mt-4">Resumen General</button>
+                    <button class="collapsible btn btn-info btn-block mt-4" id="generalSummaryCollapsible">Resumen General</button>
                     <div class="content" id="summaryContent">
                         <div class="card mt-4">
-                            <div class="card-header">
-                                <strong>Resumen General</strong>
-                            </div>
                             <div class="card-body">
+                                <p id="originalLabel"></p>
                                 <p id="mostProbableClass"></p>
                                 <p id="secondProbableClass"></p>
                                 <p id="thirdProbableClass"></p>
-                                <p id="originalLabel"></p>
-                                <p id="cardiacConditionSuggestion"></p> <!-- NUEVO: Párrafo para la sugerencia de afección cardíaca -->
+                                <p id="cardiacConditionSuggestion"></p>
                                 <p id="accuracyResult" style="font-weight: bold;"></p>
                                 <p id="f1ScoreResult" style="font-weight: bold;"></p>
                             </div>
@@ -512,9 +526,13 @@ $(document).ready(function () {
                 `;
                 resultsDiv.append(resultsHtml); // Añade el HTML al div de resultados
                 resultsDiv.fadeIn(600); // Muestra los resultados con un efecto de fade
+                initCollapsibles();
 
-                // Obtener referencia al nuevo botón de descarga
+                // Obtener referencia al nuevo botón de descarga y al colapsable de resumen general
                 const downloadEcgZipButton = $('#btn-download-ecg-zip');
+                const generalSummaryCollapsible = $('#generalSummaryCollapsible');
+                const patientDataCollapsible = $('#patientDataCollapsible'); // Referencia al colapsable de Datos del Paciente
+
 
                 // Lógica para el botón de descarga
                 if (data.full_ecg_plot_url) { // La lógica de descarga depende de que exista al menos un gráfico
@@ -570,10 +588,15 @@ $(document).ready(function () {
                 const currentSecondProbableClassP = $('#secondProbableClass');
                 const currentThirdProbableClassP = $('#thirdProbableClass');
                 const currentOriginalLabelP = $('#originalLabel');
-                const currentCardiacConditionSuggestionP = $('#cardiacConditionSuggestion'); // NUEVO: Obtener referencia al nuevo párrafo
-                const currentAccuracyP = $('#accuracyResult'); // Nuevo
-                const currentF1ScoreP = $('#f1ScoreResult');   // Nuevo
-                const currentSegmentPlotsContainer = $('#segmentPlotsContainer'); // No se usa aquí para añadir plots, pero se mantiene la referencia
+                const currentCardiacConditionSuggestionP = $('#cardiacConditionSuggestion');
+                const currentAccuracyP = $('#accuracyResult');
+                const currentF1ScoreP = $('#f1ScoreResult');
+                const currentSegmentPlotsContainer = $('#segmentPlotsContainer');
+
+                // Elementos de info del paciente (ya existen en index.html)
+                const currentPatientNameP = $('#patientNameResult');
+                const currentPatientAgeP = $('#patientAgeResult');
+                const currentPatientSexP = $('#patientSexResult');
 
                 currentDetailedPredictionsTableBody.empty(); // Limpia la tabla de predicciones detalladas
                 currentAveragePredictionTableBody.empty(); // Limpia la tabla de predicciones promedio
@@ -602,14 +625,15 @@ $(document).ready(function () {
                     console.warn('Advertencia: No se encontraron probabilidades promedio en la respuesta.');
                 }
 
-                // Actualiza los párrafos de resumen general
+                // Actualiza los párrafos de resumen general con la información del paciente
+                currentPatientNameP.text(`Nombre del paciente: ${data.patient_name || 'No disponible'}`);
+                currentPatientAgeP.text(`Edad del paciente: ${data.patient_age || 'No disponible'}`);
+                currentPatientSexP.text(`Sexo del paciente: ${data.patient_sex || 'No disponible'}`);
+                
+                currentOriginalLabelP.text(`La etiqueta original del registro es ${data.original_label || 'Desconocida'}.`);
                 currentMostProbableClassP.text(`La etiqueta más probable es ${data.most_probable_class || 'N/A'} con una certeza del ${data.most_probable_certainty ? data.most_probable_certainty.toFixed(1) : 'N/A'}%.`);
                 currentSecondProbableClassP.text(`La segunda etiqueta prevista es ${data.second_probable_class || 'N/A'} con una certeza del ${data.second_probable_certainty ? data.second_probable_certainty.toFixed(1) : 'N/A'}%.`);
                 currentThirdProbableClassP.text(`La tercera etiqueta prevista es ${data.third_probable_class || 'N/A'} con una certeza del ${data.third_probable_certainty ? data.third_probable_certainty.toFixed(1) : 'N/A'}%.`);
-                // Eliminado: La etiqueta original ya no se muestra
-                // const displayOriginalLabel = data.original_label && data.original_label.trim() !== '' ? data.original_label : 'No disponible (solo para archivos convertidos desde WFDB)';
-                // currentOriginalLabelP.text(`La etiqueta original del registro es ${displayOriginalLabel}`);
-                // Se asegura que la sugerencia de condición cardíaca esté presente y sea prominente
                 currentCardiacConditionSuggestionP.text(data.cardiac_condition_suggestion || 'No se pudo determinar una sugerencia de afección cardíaca.');
 
 
@@ -625,6 +649,9 @@ $(document).ready(function () {
                     currentF1ScoreP.text(''); // Limpiar si no hay datos
                 }
 
+                // Después de rellenar los datos, abrir la sección de Resumen General y Datos del Paciente
+                // Muestra la sección completa de Datos del Paciente
+                patientDataSection.show(); 
             },
            error: function(xhr, status, error) {
                 // En caso de error, detiene el progreso y muestra el botón de predicción
@@ -636,6 +663,9 @@ $(document).ready(function () {
                     progressSection.hide();
                     predictButton.show();
                 }, 1000);
+
+                // Oculta la sección de datos del paciente en caso de error
+                patientDataSection.hide();
 
                 // Muestra un mensaje de error utilizando un cuadro de mensaje personalizado
                 const errorMsg = 'Error en el análisis: ' + (xhr.responseJSON ? xhr.responseJSON.error : 'Error desconocido.');

@@ -252,7 +252,7 @@ def predict_and_summarize(data, label, peaks, config, record_name_base):
     # --- FIN NUEVO: Gráfico reducido ---
 
     # Realiza la predicción por partes y obtiene la lista de predicciones y la cadena de resultados
-    # MODIFICACIÓN: predictByPart ahora devolverá también las rutas de los gráficos de segmentos
+    # predictByPart ahora devolverá también las rutas de los gráficos de segmentos
     predicted_list_raw, result_string, segment_plot_paths = predictByPart(data, peaks, record_output_dir, record_name_base)
 
     # Las clases mapeadas para una salida más legible
@@ -317,7 +317,7 @@ def predict_and_summarize(data, label, peaks, config, record_name_base):
         third_probable_class = classes_map[third_idx]
         third_probable_certainty = 100 * avg_predict[third_idx]
 
-    # --- NUEVA LÓGICA: Sugerencia de afección cardíaca ---
+    # --- Sugerencia de afección cardíaca ---
     cardiac_condition_suggestion = ""
     if most_probable_class == 'N':
         if most_probable_certainty >= 80.0: # Umbral para considerar "Normal" con alta certeza
@@ -382,7 +382,7 @@ def predictByPart(data, peaks, record_output_dir, record_name_base):
     classes_map = ['N','Ventricular','Paced','A','F','Noise'] # Mapeo de índices a nombres de clase
     predicted_details = [] # Almacena [{'class': 'N', 'probability': 'XX.X%', 'all_probs_array': [...], 'plot_path': '...'}]
     result_string = "" # Cadena para el resumen de resultados (para CLI)
-    segment_plot_paths = [] # Lista para almacenar las rutas a los gráficos de segmentos individuales
+    segment_plot_paths = [] # Lista para almacenar las rutas a gráficos de segmentos individuales
     
     # FIX: Inicializa 'counter' aquí
     counter = [0] * len(classes_map) 
@@ -510,6 +510,73 @@ def predictByPart(data, peaks, record_output_dir, record_name_base):
 
     return predicted_details, result_string, segment_plot_paths
 
+def print_table(headers, rows, col_widths, colors=None):
+    """
+    Imprime una tabla con encabezados y filas, usando anchos de columna y colores opcionales.
+    """
+    # Línea superior
+    print(f"{Colors.CYAN}+" + "+".join(['-' * (w + 2) for w in col_widths]) + f"+{Colors.ENDC}")
+    # Encabezado
+    header_line = f"{Colors.CYAN}| "
+    for i, header in enumerate(headers):
+        color = colors[i] if colors and i < len(colors) else Colors.UNDERLINE
+        header_line += f"{color}{header:<{col_widths[i]}}{Colors.ENDC}{Colors.CYAN} | "
+    print(header_line[:-1] + f"{Colors.ENDC}")
+    # Separador
+    print(f"{Colors.CYAN}+" + "+".join(['-' * (w + 2) for w in col_widths]) + f"+{Colors.ENDC}")
+    # Filas
+    for i, row in enumerate(rows):
+        text_color = Colors.BLUE if i % 2 == 0 else Colors.CYAN
+        row_line = f"{Colors.CYAN}| "
+        for j, cell in enumerate(row):
+            row_line += f"{text_color}{cell:<{col_widths[j]}}{Colors.ENDC}{Colors.CYAN} | "
+        print(row_line[:-1] + f"{Colors.ENDC}")
+        if i < len(rows) - 1:
+            print(f"{Colors.CYAN}+" + "+".join(['-' * (w + 2) for w in col_widths]) + f"+{Colors.ENDC}")
+    # Línea final
+    print(f"{Colors.CYAN}+" + "+".join(['-' * (w + 2) for w in col_widths]) + f"+{Colors.ENDC}")
+
+def print_prediction_summary(prediction_summary):
+    print(f"{Colors.GREEN}La etiqueta más probable es {Colors.BOLD}{prediction_summary['most_probable_class']}{Colors.ENDC}{Colors.GREEN} con una certeza del {prediction_summary['most_probable_certainty']:3.1f}%.{Colors.ENDC}")
+    if prediction_summary['second_probable_class']:
+        print(f"{Colors.CYAN}La segunda etiqueta prevista es {Colors.BOLD}{prediction_summary['second_probable_class']}{Colors.ENDC}{Colors.CYAN} con una certeza del {prediction_summary['second_probable_certainty']:3.1f}%.{Colors.ENDC}")
+    if prediction_summary['third_probable_class']:
+        print(f"{Colors.CYAN}La tercera etiqueta prevista es {Colors.BOLD}{prediction_summary['third_probable_class']}{Colors.ENDC}{Colors.CYAN} con una certeza del {prediction_summary['third_probable_certainty']:3.1f}%.{Colors.ENDC}")
+    if prediction_summary['original_label']:
+        print(f"{Colors.CYAN}La etiqueta original del registro es {Colors.BOLD}{prediction_summary['original_label']}{Colors.ENDC}")
+    print(f"{Colors.BOLD}{Colors.WARNING}{prediction_summary['cardiac_condition_suggestion']}{Colors.ENDC}")
+
+def print_detailed_predictions(predictions_detailed):
+    col1_width = 12
+    col2_width = 18
+    col3_width = 87
+    headers = ['Registro #', 'Clase Predicha', 'Probabilidades']
+    rows = []
+    for i, pred_detail in enumerate(predictions_detailed):
+        pred_class = pred_detail['class']
+        probabilities = pred_detail['all_probs_array']
+        # Multiplica por 100, limita a 5 decimales y añade el símbolo de porcentaje
+        prob_parts_formatted = [f'{p*100:.5f}%' for p in probabilities]
+        prob_cell_content = f'{prob_parts_formatted[0]:<12}'
+        for k in range(1, len(prob_parts_formatted)):
+            prob_cell_content += f'{Colors.CYAN} | {Colors.BLUE if i % 2 == 0 else Colors.CYAN}{prob_parts_formatted[k]:<12}'
+        rows.append([str(i + 1), pred_class, prob_cell_content])
+    print(f"{Colors.BLUE}Predicciones Detalladas (por parte):{Colors.ENDC}")
+    print_table(headers, rows, [col1_width, col2_width, col3_width])
+
+def print_average_probabilities(avg_probs):
+    col1_width = 15
+    col2_width = 20
+    headers = ['Clase', 'Probabilidad Media']
+    avg_classes_map = ['Normal', 'Ventricular', 'Estimulado', 'Auricular', 'Fusión', 'Ruido']
+    rows = []
+    for i, prob_avg in enumerate(avg_probs):
+        # Multiplica por 100 y limita a 5 decimales
+        formatted_prob_avg = f'{prob_avg*100:.5f}%'
+        rows.append([avg_classes_map[i], formatted_prob_avg])
+    print(f"\n{Colors.BLUE}Media de la Predicción:{Colors.ENDC}")
+    print_table(headers, rows, [col1_width, col2_width])
+
 def main(config):
     """
     Función principal para ejecutar el proceso de predicción.
@@ -548,95 +615,12 @@ def main(config):
 
         # Imprimir información en el orden solicitado y con colores (para CLI)
         print(f"\n{Colors.HEADER}--- Resumen de Predicción General ---{Colors.ENDC}")
-
-        # Sección de predicciones detalladas en formato de tabla
-        col1_width = 12 # Registro #
-        col2_width = 18 # Clase Predicha
-        # Ancho para las probabilidades: 6 probs * 12 chars/prob + 5 separadores * 3 chars/separador = 72 + 15 = 87.
-        col3_width = 87 # Ajustado para notación científica y separadores
-        
-        print(f"{Colors.BLUE}Predicciones Detalladas (por parte):{Colors.ENDC}")
-        # Línea superior de la tabla
-        print(f"{Colors.CYAN}+{'-' * (col1_width + 2)}+{'-' * (col2_width + 2)}+{'-' * (col3_width + 2)}+{Colors.ENDC}")
-        # Encabezado de la tabla
-        # Formatear encabezado de probabilidad para que coincida con el ancho de la subcolumna
-        prob_header_parts = [
-            f"{'N':<12}", f"{'V':<12}", f"{'P':<12}",
-            f"{'A':<12}", f"{'F':<12}", f"{'Ruido':<12}"
-        ]
-        prob_header_str = f"({' | '.join(prob_header_parts)})"
-        
-        print(f"{Colors.CYAN}| {Colors.UNDERLINE}{'Registro #':<{col1_width}}{Colors.ENDC}{Colors.CYAN} | {Colors.UNDERLINE}{'Clase Predicha':<{col2_width}}{Colors.ENDC}{Colors.CYAN} | {Colors.UNDERLINE}{'Probabilidades':<{col3_width}}{Colors.ENDC}{Colors.CYAN} |{Colors.ENDC}")
-        # Separador entre encabezado y datos
-        print(f"{Colors.CYAN}+{'-' * (col1_width + 2)}+{'-' * (col2_width + 2)}+{'-' * (col3_width + 2)}+{Colors.ENDC}")
-        
-        for i, pred_detail in enumerate(prediction_summary['predictions_detailed']):
-            pred_class = pred_detail['class']
-            probabilities = pred_detail['all_probs_array']
-            # Colores de texto alternos para las filas
-            text_color = Colors.BLUE if i % 2 == 0 else Colors.CYAN
-            
-            # Formatear probabilidades con notación científica y líneas verticales entre ellas
-            prob_parts_formatted = [f'{p:.7e}' for p in probabilities] # Formato de notación científica
-            
-            prob_cell_content = f'{prob_parts_formatted[0]:<12}' # Primer elemento con su relleno
-            for k in range(1, len(prob_parts_formatted)):
-                # Agregar separador vertical con color y luego el siguiente elemento con su color y relleno
-                prob_cell_content += f'{Colors.CYAN} | {text_color}{prob_parts_formatted[k]:<12}'
-            
-            # Imprimir la fila con colores y líneas verticales
-            print(f"{Colors.CYAN}| {text_color}{i + 1:<{col1_width}}{Colors.ENDC}{Colors.CYAN} | {text_color}{pred_class:<{col2_width}}{Colors.ENDC}{Colors.CYAN} | {text_color}{prob_cell_content:<{col3_width}}{Colors.ENDC}{Colors.CYAN} |{Colors.ENDC}")
-            
-            # Línea horizontal después de cada fila, excepto la última
-            if i < len(prediction_summary['predictions_detailed']) - 1:
-                print(f"{Colors.CYAN}+{'-' * (col1_width + 2)}+{'-' * (col2_width + 2)}+{'-' * (col3_width + 2)}+{Colors.ENDC}")
-        # Línea final de la tabla
-        print(f"{Colors.CYAN}+{'-' * (col1_width + 2)}+{'-' * (col2_width + 2)}+{'-' * (col3_width + 2)}+{Colors.ENDC}")
-
-
-        # Sección de predicción promedio en formato de tabla
-        col1_width_avg = 15 # Clase
-        col2_width_avg = 20 # Probabilidad Media (para el texto del encabezado)
-        
-        print(f"\n{Colors.BLUE}Media de la Predicción:{Colors.ENDC}")
-        
+        print_detailed_predictions(prediction_summary['predictions_detailed'])
         if prediction_summary['average_probabilities']:
-            avg_classes_map = ['Normal', 'Ventricular', 'Estimulado', 'Auricular', 'Fusión', 'Ruido']
-            
-            # Línea superior de la tabla
-            print(f"{Colors.CYAN}+{'-' * (col1_width_avg + 2)}+{'-' * (col2_width_avg + 2)}+{Colors.ENDC}")
-            # Encabezado de la tabla
-            print(f"{Colors.CYAN}| {Colors.UNDERLINE}{'Clase':<{col1_width_avg}}{Colors.ENDC}{Colors.CYAN} | {Colors.UNDERLINE}{'Probabilidad Media':<{col2_width_avg}}{Colors.ENDC}{Colors.CYAN} |{Colors.ENDC}")
-            # Separador entre encabezado y datos
-            print(f"{Colors.CYAN}+{'-' * (col1_width_avg + 2)}+{'-' * (col2_width + 2)}+{Colors.ENDC}")
-            
-            for i, prob_avg in enumerate(prediction_summary['average_probabilities']):
-                # Colores de texto alternos para las filas
-                text_color = Colors.BLUE if i % 2 == 0 else Colors.CYAN
-                # Formatear probabilidad promedio en notación científica
-                formatted_prob_avg = f'{prob_avg:.7e}%'
-                print(f"{Colors.CYAN}| {text_color}{avg_classes_map[i]:<{col1_width_avg}}{Colors.ENDC}{Colors.CYAN} | {text_color}{formatted_prob_avg:<{col2_width_avg}}{Colors.ENDC}{Colors.CYAN} |{Colors.ENDC}")
-                
-                # Línea horizontal después de cada fila, excepto la última
-                if i < len(prediction_summary['average_probabilities']) - 1:
-                    print(f"{Colors.CYAN}+{'-' * (col1_width_avg + 2)}+{'-' * (col2_width_avg + 2)}+{Colors.ENDC}")
-            # Línea final de la tabla
-            print(f"{Colors.CYAN}+{'-' * (col1_width_avg + 2)}+{'-' * (col2_width_avg + 2)}+{Colors.ENDC}")
+            print_average_probabilities(prediction_summary['average_probabilities'])
         else:
             print(f"{Colors.WARNING}No hay probabilidades promedio disponibles.{Colors.ENDC}")
-
-
-        print(f"{Colors.GREEN}La etiqueta más probable es {Colors.BOLD}{prediction_summary['most_probable_class']}{Colors.ENDC}{Colors.GREEN} con una certeza del {prediction_summary['most_probable_certainty']:3.1f}%.{Colors.ENDC}")
-        if prediction_summary['second_probable_class']:
-            print(f"{Colors.CYAN}La segunda etiqueta prevista es {Colors.BOLD}{prediction_summary['second_probable_class']}{Colors.ENDC}{Colors.CYAN} con una certeza del {prediction_summary['second_probable_certainty']:3.1f}%.{Colors.ENDC}")
-        if prediction_summary['third_probable_class']:
-            print(f"{Colors.CYAN}La tercera etiqueta prevista es {Colors.BOLD}{prediction_summary['third_probable_class']}{Colors.ENDC}{Colors.CYAN} con una certeza del {prediction_summary['third_probable_certainty']:3.1f}%.{Colors.ENDC}")
-        if prediction_summary['original_label']:
-            print(f"{Colors.CYAN}La etiqueta original del registro es {Colors.BOLD}{prediction_summary['original_label']}{Colors.ENDC}")
-        
-        # NUEVA LÍNEA: Imprimir la sugerencia de afección cardíaca
-        print(f"{Colors.BOLD}{Colors.WARNING}{prediction_summary['cardiac_condition_suggestion']}{Colors.ENDC}")
-
+        print_prediction_summary(prediction_summary)
     else:
         print(f"{Colors.FAIL}El preprocesamiento de datos falló. No se pudo realizar la predicción.{Colors.ENDC}")
 

@@ -9,6 +9,7 @@ os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0' # Deshabilita optimizaciones de OneDNN
 import h5py # Para trabajar con archivos HDF5 (formato .keras)
 import csv # Importa el módulo csv para leer y escribir archivos CSV
 import pandas as pd # Importado para manejar datos y exportar a CSV
+import hashlib # Importar para calcular hashes de los datos
 
 def mkdir_recursive(path):
   """
@@ -396,12 +397,36 @@ def preprocess(data, config):
     from sklearn import preprocessing # Importa el módulo de preprocesamiento.
     data = preprocessing.scale(data) # Escala los datos para que tengan media 0 y varianza 1.
 
+    # Calcular y imprimir el hash de los datos después de preprocesamiento
+    # para verificar si son idénticos antes de la detección de picos.
+    data_bytes = data.tobytes()
+    data_hash = hashlib.sha256(data_bytes).hexdigest()
+    print(f"DEBUG: Hash de los datos preprocesados antes de find_peaks: {data_hash}")
+
+
     from scipy.signal import find_peaks # Importa la función para encontrar picos.
     peaks, _ = find_peaks(data, distance=150)
 
     data = data.reshape(1, len(data)) # Remodela los datos a (1, longitud_señal)
     data = np.expand_dims(data, axis=2) # Expande las dimensiones a (1, longitud_señal, 1) para Keras.
     return data, peaks # Retorna los datos procesados y los picos.
+
+def _extract_sampling_rate_from_comment(comment_line):
+    """
+    Extrae el sampling rate de una línea de comentario si está presente.
+    Args:
+        comment_line (str): Línea de comentario que puede contener el sampling rate.
+    Returns:
+        float or None: El sampling rate si se encuentra, de lo contrario None.
+    """
+    if 'Sampling Rate:' in comment_line:
+        try:
+            sr_part = comment_line.split('Sampling Rate:')[1].strip().split(' ')[0]
+            return float(sr_part)
+        except (ValueError, IndexError):
+            return None
+    return None
+
 
 def uploadedData(filename, csvbool = True):
     """
@@ -418,27 +443,20 @@ def uploadedData(filename, csvbool = True):
     """
     if csvbool:
         sampling_rate = None
-        # Intentar leer la primera línea para la frecuencia de muestreo
         with open(filename, 'r') as f:
             first_line = f.readline().strip()
             if first_line.startswith('#'):
+                sampling_rate = _extract_sampling_rate_from_comment(first_line)
                 try:
-                    sampling_rate = float(first_line.split(':')[1].strip())
-                    # Leer el resto del archivo como CSV sin el encabezado
-                    df = pd.read_csv(filename, skiprows=1)
-                except (ValueError, IndexError):
-                    # Si no se puede parsear como sampling rate, tratar como un CSV normal
+                    if sampling_rate is not None:
+                        df = pd.read_csv(filename, skiprows=1)
+                    else:
+                        df = pd.read_csv(filename)
+                except Exception:
                     df = pd.read_csv(filename)
             else:
-                # Si la primera línea no es un comentario de sampling rate, leerla como parte del CSV
                 df = pd.read_csv(filename)
-        
-        # Convertir el DataFrame a un array de NumPy
-        # Si hay una sola columna, será 1D. Si hay varias, será 2D.
         signal_data_array = df.values.squeeze()
-
         return sampling_rate, signal_data_array
     else:
-        # Esta parte no se usa actualmente para la predicción en el frontend.
-        # Si csvbool es False, se esperaría otra lógica de carga de datos.
         raise NotImplementedError("uploadedData con csvbool=False no está completamente implementada para este caso.")
