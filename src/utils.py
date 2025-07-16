@@ -183,7 +183,7 @@ def plot_confusion_matrix(y_true, y_pred, classes, feature,
 
 
 # Curvas de precisión-recuperación y curvas ROC para cada clase
-def PR_ROC_curves(ytrue, ypred, classes, ypred_mat):
+def PR_ROC_curves(ytrue, ypred, classes, ypred_mat, classification_report_dict):
     """
     Genera y guarda las curvas Precision-Recall (PR) y Receiver Operating Characteristic (ROC)
     para cada clase.
@@ -193,6 +193,7 @@ def PR_ROC_curves(ytrue, ypred, classes, ypred_mat):
         ypred (array): Etiquetas predichas (índices de clase).
         classes (list): Nombres de las clases.
         ypred_mat (array): Matriz de probabilidades predichas (scores) para cada clase.
+        classification_report_dict (dict): Diccionario con el reporte de clasificación (precision, recall, f1-score).
     """
     ybool = ypred == ytrue # Booleano que indica si la predicción es correcta.
     f, ax = plt.subplots(3,4,figsize=(10, 10)) # Crea una figura con subplots.
@@ -206,20 +207,36 @@ def PR_ROC_curves(ytrue, ypred, classes, ypred_mat):
         idx = list(set(idx1 + idx2)) # Combina y elimina duplicados.
 
         if not idx: # Si no hay muestras para esta clase, salta.
+            print(f"Advertencia: No hay muestras para la clase {c}. Saltando cálculo de curvas PR/ROC.")
             continue
 
         # Selecciona las etiquetas verdaderas y probabilidades predichas para las muestras de la clase actual.
         bi_ytrue = (ytrue[idx] == c_idx).astype(int) # Convierte a 0 o 1 para la clase actual.
         bi_prob = ypred_mat[idx, c_idx] # Probabilidades para la clase actual.
 
-        try:
-            # Calcula y imprime el AUC (Area Under the Curve) para la curva ROC.
-            auc_score = roc_auc_score(bi_ytrue, bi_prob)
-            print(f"AUC para {c}: {auc_score}")
-            e+=1 # Incrementa el contador de ejes.
-        except ValueError:
-            print(f"Advertencia: No se pudo calcular AUC para la clase {c}. Posiblemente solo una clase presente.")
-            continue # Si hay un error (ej. solo una clase presente), salta.
+        auc_score = np.nan # Inicializar AUC como NaN
+
+        # Verificar si bi_ytrue contiene ambas clases (0 y 1)
+        unique_labels_in_subset = np.unique(bi_ytrue)
+        if len(unique_labels_in_subset) < 2:
+            if 1 in unique_labels_in_subset: # Si solo 1s están presentes en bi_ytrue (solo verdaderos positivos)
+                # Si la precisión para esta clase es 1.0, el AUC es igual al recall.
+                if c in classification_report_dict and classification_report_dict[c]['precision'] == 1.0:
+                    auc_score = classification_report_dict[c]['recall']
+                    print(f"INFO: AUC para {c} inferido como recall ({auc_score:.2f}) debido a precisión perfecta y solo verdaderos positivos en el subconjunto.")
+                else:
+                    print(f"Advertencia: No se pudo calcular AUC para la clase {c}. Solo se encontró la clase positiva en las etiquetas verdaderas del subconjunto ({unique_labels_in_subset}).")
+            else: # Si solo 0s están presentes en bi_ytrue (solo verdaderos negativos)
+                print(f"Advertencia: No se pudo calcular AUC para la clase {c}. Solo se encontró la clase negativa en las etiquetas verdaderas del subconjunto ({unique_labels_in_subset}).")
+        else:
+            try:
+                # Calcula y imprime el AUC (Area Under the Curve) para la curva ROC.
+                auc_score = roc_auc_score(bi_ytrue, bi_prob)
+                print(f"AUC para {c}: {auc_score}")
+            except ValueError as ve:
+                print(f"Advertencia: No se pudo calcular AUC para la clase {c}. Error: {ve}. Posiblemente predicciones constantes.")
+        
+        e+=1 # Incrementa el contador de ejes.
 
         # Curva Precision-Recall
         ppvs, senss, _ = precision_recall_curve(bi_ytrue, bi_prob)
@@ -238,7 +255,11 @@ def PR_ROC_curves(ytrue, ypred, classes, ypred_mat):
         cax2.plot(fpr, tpr, lw=2, label="Modelo") # Dibuja la curva ROC.
         cax2.set_xlim(-0.1, 1.) # Establece los límites del eje x.
         cax2.set_ylim(0.0, 1.05) # Establece los límites del eje y.
-        cax2.set_title(f"Clase {c}") # Título del subplot.
+        # Añadir AUC al título si se calculó
+        if not np.isnan(auc_score):
+            cax2.set_title(f"Clase {c} (AUC: {auc_score:.2f})") # Título del subplot con AUC.
+        else:
+            cax2.set_title(f"Clase {c} (AUC: N/A)") # Título del subplot sin AUC.
         cax2.set_xlabel('1 - Especificidad')
         cax2.set_ylabel('Sensibilidad')
         cax2.legend(loc=4) # Posición de la leyenda.
@@ -292,10 +313,13 @@ def print_results(config, model, Xval, yval, classes):
     # Calcula el F1-score (promedio ponderado)
     f1_score_val = f1_score(ytrue, ypred, average='weighted')
 
+    # Genera el reporte de clasificación como diccionario y lo imprime
+    report_dict = classification_report(ytrue, ypred, target_names=classes, output_dict=True)
     print(classification_report(ytrue, ypred, target_names=classes)) # Imprime el reporte de clasificación.
+    
     plot_confusion_matrix(ytrue, ypred, classes, feature=config.feature, normalize=False) # Traza la matriz de confusión no normalizada.
     print("F1 score:", f1_score(ytrue, ypred, average=None)) # Imprime el F1-score por clase.
-    PR_ROC_curves(ytrue, ypred, classes, ypred_mat) # Genera y guarda las curvas PR y ROC.
+    PR_ROC_curves(ytrue, ypred, classes, ypred_mat, report_dict) # Genera y guarda las curvas PR y ROC, pasando el reporte.
 
     return accuracy_val, f1_score_val # Retorna los valores calculados
 

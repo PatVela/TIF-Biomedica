@@ -179,7 +179,7 @@ def ECG_model(config):
         model = Model(inputs=inputs, outputs=outputs)
         
         # Configura el optimizador Adam con una tasa de aprendizaje inicial.
-        adam = Adam(learning_rate=0.1, beta_1=0.9, beta_2=0.999, epsilon=1e-7, amsgrad=False)
+        adam = Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-7, amsgrad=False)
         # Compila el modelo con el optimizador, la función de pérdida (categorical_crossentropy para one-hot encoding)
         # y la métrica a monitorear (accuracy).
         model.compile(optimizer= adam,
