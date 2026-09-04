@@ -50,18 +50,41 @@ def load_all(data_path, label_file):
     return dataset
 
 
-def split(dataset, dev_frac):
-    dev_cut = int(dev_frac * len(dataset))
-    random.shuffle(dataset)
-    dev = dataset[:dev_cut]
-    train = dataset[dev_cut:]
+def split(dataset, dev_frac, stratify=False, seed=2018):
+    """Split into train/dev.
+
+    By default the split is random (as in the original awni/ecg code). With
+    `stratify=True` it instead partitions proportionally to each class so the
+    rare classes (A, ~) are represented in dev at the same rate as in train —
+    recommended to avoid a class-imbalanced dev set (see README / notes).
+    """
+    if not stratify:
+        random.Random(seed).shuffle(dataset)
+        dev_cut = int(dev_frac * len(dataset))
+        return dataset[dev_cut:], dataset[:dev_cut]
+
+    by_class = {}
+    for d in dataset:
+        label = d[1][0] if d[1] else 'N'
+        by_class.setdefault(label, []).append(d)
+    train, dev = [], []
+    for label, items in by_class.items():
+        random.Random(seed + hash(label) % 1_000_000).shuffle(items)
+        cut = int(round(dev_frac * len(items)))
+        train.extend(items[cut:])
+        dev.extend(items[:cut])
+    random.Random(seed).shuffle(train)
+    random.Random(seed + 1).shuffle(dev)
     return train, dev
 
 
-def make_json(save_path, dataset):
+def make_json(save_path, dataset, relative_to=None):
     with open(save_path, 'w') as f:
         for d in dataset:
-            f.write(json.dumps({'ecg': d[0], 'labels': d[1]}) + '\n')
+            path = d[0]
+            if relative_to:
+                path = os.path.relpath(path, relative_to)
+            f.write(json.dumps({'ecg': path, 'labels': d[1]}) + '\n')
 
 
 if __name__ == "__main__":
@@ -76,11 +99,19 @@ if __name__ == "__main__":
                         default="examples/cinc17",
                         help="where to write train.json / dev.json")
     parser.add_argument("--dev_frac", type=float, default=0.1)
+    parser.add_argument("--stratify", action="store_true",
+                        help="split proportionally to class (avoids imbalanced dev)")
+    parser.add_argument("--relative", action="store_true",
+                        help="store record paths relative to --out_dir (portable "
+                             "train/dev.json, no absolute Windows paths)")
     args = parser.parse_args()
 
     random.seed(2018)
     dataset = load_all(args.data_dir, args.label_file)
-    train, dev = split(dataset, args.dev_frac)
-    make_json(os.path.join(args.out_dir, "train.json"), train)
-    make_json(os.path.join(args.out_dir, "dev.json"), dev)
+    train, dev = split(dataset, args.dev_frac, stratify=args.stratify)
+    # paths are stored relative to the project ROOT so train.json/dev.json are
+    # portable across machines (train.py resolves them against the repo root).
+    rel = os.path.abspath(os.path.join(args.out_dir, '..', '..')) if args.relative else None
+    make_json(os.path.join(args.out_dir, "train.json"), train, relative_to=rel)
+    make_json(os.path.join(args.out_dir, "dev.json"), dev, relative_to=rel)
     print("train:", len(train), "dev:", len(dev))

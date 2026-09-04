@@ -28,13 +28,25 @@ STEP = 256
 # Dataset / preprocessor
 # ---------------------------------------------------------------------------
 class Preproc:
-    """Port of Preproc: computes global mean/std and the class vocabulary."""
+    """Port of Preproc: computes global mean/std and the class vocabulary.
+
+    `CLASS_PAD` is the pseudo-class used to fill the trailing "padding" of a
+    batch (a label attached to zero-padded signal regions so the model learns to
+    predict a neutral class there). The original code hard-codes value 3, which
+    coincides with the index of '~' (noise) for the CinC2017 vocabulary
+    ['A','N','O','~']; we derive the index dynamically so it is robust if the
+    class vocabulary ever changes. If no '~' class exists, we fall back to the
+    highest index (an arbitrary out-of-range sentinel is avoided because the
+    target must index a valid class for CrossEntropy).
+    """
 
     def __init__(self, ecg, labels):
         self.mean, self.std = compute_mean_std(ecg)
         self.classes = sorted(set(l for label in labels for l in label))
         self.int_to_class = dict(zip(range(len(self.classes)), self.classes))
         self.class_to_int = {c: i for i, c in self.int_to_class.items()}
+        self.pad_value = self.class_to_int.get('~', len(self.classes) - 1)
+        self.pad_class = self.int_to_class[self.pad_value]
 
     # -- numpy-level convenience (used by predict and the non-generator path) --
     def process(self, x, y):
@@ -50,7 +62,7 @@ class Preproc:
 
     def process_y(self, y):
         ints = [[self.class_to_int[c] for c in s] for s in y]
-        ints = pad(ints, val=3, dtype=np.int32)          # pad value '3'
+        ints = pad(ints, val=self.pad_value, dtype=np.int32)
         return ints.astype(np.int64)
 
 

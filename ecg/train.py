@@ -132,7 +132,9 @@ def train(args, params):
     print("Train steps/epoch:", train_steps, "| Dev steps/epoch:", dev_steps)
 
     # ----- optimiser (Adam with gradient clipping, as in add_compile) -----
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    # Keras/TF Adam default epsilon is 1e-7; PyTorch defaults to 1e-8. Pin the
+    # Keras value for numerical parity with the original training.
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, eps=1e-7)
 
     # ----- loss: categorical cross-entropy over the flattened time grid -----
     criterion = nn.CrossEntropyLoss()

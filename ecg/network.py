@@ -70,11 +70,19 @@ class _ConvSame1d(nn.Module):
 
 
 class _BNRelu(nn.Module):
-    """BatchNorm -> ReLU -> (optional) Dropout, port of _bn_relu()."""
+    """BatchNorm -> ReLU -> (optional) Dropout, port of _bn_relu().
 
-    def __init__(self, channels, dropout, seed=None):
+    Numerical parity with Keras: Keras BatchNormalization uses eps=1e-3,
+    momentum=0.99 (a decay), while PyTorch defaults are eps=1e-5, momentum=0.1
+    (and PyTorch's momentum is the *inverse* of Keras' decay). To reproduce the
+    original training as closely as possible we pin the Keras values here.
+    torch.BatchNorm1d(momentum=0.99) == keras(tf) momentum=0.99 decay semantics
+    for the running mean/var update.
+    """
+
+    def __init__(self, channels, dropout, eps=1e-3, momentum=0.99, seed=None):
         super().__init__()
-        self.bn = nn.BatchNorm1d(channels)
+        self.bn = nn.BatchNorm1d(channels, eps=eps, momentum=momentum)
         self.act = nn.ReLU()
         self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
 

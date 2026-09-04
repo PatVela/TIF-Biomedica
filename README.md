@@ -4,7 +4,7 @@ Reimplementación en **PyTorch** de `awni/ecg`, el código fuente abierto que ac
 
 > **Cardiologist-Level Arrhythmia Detection and Classification in Ambulatory Electrocardiograms Using a Deep Neural Network** — Hannun, A. Y., Rajpurkar, P., Haghpanahi, M., Tison, G. H., Bourn, C., Turakhia, M. P., & Ng, A. Y. — *Nature Medicine*, 2019.
 
-El repositorio original está escrito en **Keras/TensorFlow (Python 2)**. Este proyecto traslada la **misma arquitectura y el mismo pipeline de datos** a PyTorch moderno, y añade una **aplicación web interactiva** (Flask) para clasificar señales de ECG de una sola derivación.
+El repositorio original está escrito en **Keras/TensorFlow (Python 2)**. Este proyecto traslada la **misma arquitectura y el mismo pipeline de datos** a PyTorch moderno, y añade una **aplicación web interactiva** (Flask + Plotly) para clasificar señales de ECG de una sola derivación.
 
 ## Características
 
@@ -12,9 +12,10 @@ El repositorio original está escrito en **Keras/TensorFlow (Python 2)**. Este p
 - **Pipeline de datos idéntico**: truncado a múltiplos de 256 muestras, normalización global, una predicción por cada 256 muestras.
 - **Entrenamiento fiel al original**: Adam con `clipnorm`, `ReduceLROnPlateau`, `EarlyStopping` y checkpoint por época.
 - **Evaluación** a nivel de registro e intervalo, con la **métrica oficial del challenge** (`Challenge-F1` sobre N/A/O) además de macro-F1.
-- **Aplicación web** (Flask + Matplotlib) para cargar un CSV de ECG, predecir y visualizar el trazado con las clases coloreadas.
+- **Aplicación web** (Flask + Plotly) con gráfico interactivo, selector de checkpoint, drag-and-drop y exportación de resultados.
+- **Re-muestreo automático**: cualquier señal de entrada se relocaliza a 300 Hz antes de inferir.
 - **PyTorch con CUDA** (soporta GPU) y detección automática de dispositivo.
-- Herramientas para generación de datos sintéticos de prueba y para pruebas rápidas sin dataset.
+- Herramientas de datos sintéticos para pruebas rápidas sin dataset.
 
 ## Decisión sobre el conjunto de datos
 
@@ -140,21 +141,42 @@ Evaluación formal con métricas:
 python examples/cinc17/evaluate.py --data_json examples/cinc17/dev.json --saved saved
 ```
 
-Aplicación web (requiere `flask` y `matplotlib`):
+## Aplicación web
+
+Interfaz interactiva para clasificar señales de una sola derivación, con:
+
+- **Gráfico Plotly interactivo** (zoom/pan, tooltip por intervalo con clase + probabilidad + tiempo). El JS de Plotly está **embebido localmente**, sin CDN.
+- **Selector de checkpoint** en la interfaz: cambia de modelo **sin reiniciar el servidor**.
+- **Botón "Probar con ejemplo"** (genera y clasifica una señal sin subir nada).
+- **Drag-and-drop** del archivo y campos de etiqueta real (comparación ✔/✘).
+- **Exportación** a CSV / JSON / PNG.
+- **Re-muestreo automático** a 300 Hz y aviso en pantalla si se sube a otra frecuencia.
+
+Acepta **CSV** (una derivación), **`.mat`**, **`.dat`** y **`.npy`**:
 
 ```bash
+# desarrollo
 python webapp/app.py --saved saved
 # abre http://127.0.0.1:5000/
 # para ver desde otro dispositivo / WSL2:
 python webapp/app.py --saved saved --host 0.0.0.0 --port 5000
 ```
 
-La aplicación acepta un **CSV de una sola derivación** cuyo primer valor de la primera fila numérica es la **frecuencia de muestreo** (Hz); el resto son muestras:
+### Despliegue en producción
 
-```text
-Lead,II
-300,-0.0039,0.0290,0.0159,0.0338,...
+El servidor de desarrollo de Flask (`app.run`) **no** está pensado para producción. Usa un servidor WSGI:
+
+```bash
+# gunicorn (Linux/macOS/servidor)
+pip install gunicorn
+ECG_SAVED="saved" gunicorn -w 2 -b 0.0.0.0:5000 --timeout 120 "webapp.wsgi:app"
+
+# waitress (Windows nativo)
+pip install waitress
+waitress-serve --listen=*:5000 "webapp.wsgi:app"
 ```
+
+`webapp/wsgi.py` lee las variables de entorno `ECG_SAVED` (carpeta de checkpoints) o `ECG_MODEL` (ruta exacta) y **carga el modelo una sola vez al arrancar** (compartido entre request). Se incluye un `Procfile` para despliegue en plataformas PaaS (Heroku/Render).
 
 ## Prueba rápida
 
@@ -217,7 +239,7 @@ Métricas obtenidas sobre el `dev.json` local (sujetas a la limitación de la se
 │   ├── load.py          # Preproc, generador y lectores de WFDB/.mat/.dat
 │   ├── train.py         # bucle de entrenamiento (Adam, LR plateau, early stop)
 │   ├── predict.py       # inferencia + clase mayoritaria por registro
-│   └── util.py          # guardar/cargar preprocesador
+│   └── util.py          # guardar/cargar preprocesador + helpers de modelo
 ├── examples/
 │   └── cinc17/
 │       ├── config.json            # hiperparámetros del artículo
@@ -227,11 +249,13 @@ Métricas obtenidas sobre el `dev.json` local (sujetas a la limitación de la se
 │       ├── make_synthetic.py      # señales sintéticas de prueba
 │       └── setup.sh
 ├── webapp/
-│   ├── app.py             # aplicación Flask (GET /, POST /predict)
-│   ├── prediction.py      # PredictionService + parser CSV + plot
+│   ├── app.py             # rutas Flask (/, /predict, /example, /models, /use_model)
+│   ├── prediction.py      # PredictionService + resampling + parser + PNG/Plotly
 │   ├── make_sample_csv.py # CSV de ejemplo
+│   ├── wsgi.py            # entrada WSGI para gunicorn/waitress (ECG_SAVED/ECG_MODEL)
 │   ├── templates/index.html
-│   └── static/            # style.css, app.js
+│   └── static/            # style.css, app.js, plotly.min.js (embebido)
+├── Procfile                       # despliegue PaaS (gunicorn)
 ├── requirements.txt
 └── README.md
 ```

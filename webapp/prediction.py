@@ -6,16 +6,15 @@ saved `Preproc` (mean/std + class vocabulary) so the web app only needs to:
     service = PredictionService(model_path)
     result  = service.predict_signal(fs, signal)      # numpy floats
     b64     = service.render_plot(fs, signal, result)  # PNG data-URI
+    traces ,= service.render_plotly(fs, signal, result, max_points)  # JSON traces
 """
 
 from __future__ import absolute_import
 
 import base64
 import io
-import math
 import os
 import sys
-import glob
 
 import numpy as np
 
@@ -25,33 +24,80 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 import torch
-from ecg import network
+from ecg import load, network, util
 
-# default sampling rate for CinC2017 (Hz) if not provided in the CSV
-DEFAULT_FS = 300
+# The model was trained on CinC2017 single-lead data sampled at 300 Hz. Any
+# uploaded signal is resampled to this rate before inference.
+TRAIN_FS = 300
 STEP = 256
+MAX_PLOT_POINTS = 12000
 
 
+# --------------------------------------------------------------------------
+# Signal helpers
+# --------------------------------------------------------------------------
+def _next_pow2(n):
+    p = 1
+    while p < n:
+        p <<= 1
+    return p
+
+
+def resample_to(signal, orig_fs, target_fs=TRAIN_FS):
+    """Resample a 1-D signal to `target_fs` Hz (scipy.signal.resample).
+
+    If the signal is already at the target rate it is returned unchanged.
+    """
+    if orig_fs is None or float(orig_fs) <= 0:
+        return np.asarray(signal, dtype=np.float32), TRAIN_FS
+    if float(orig_fs) == float(target_fs):
+        return np.asarray(signal, dtype=np.float32), target_fs
+    try:
+        from scipy.signal import resample
+    except ImportError:
+        raise RuntimeError("Se requiere scipy para re-muestrear la señal.")
+    n = len(signal)
+    n_out = int(round(n * target_fs / float(orig_fs)))
+    # scipy.signal.resample pads to the next FFT-friendly length internally;
+    # use a length >= n so no trailing samples are discarded silently.
+    new_len = max(_next_pow2(n), n)
+    out = resample(np.asarray(signal, dtype=np.float32), new_len)
+    return np.asarray(out[:n_out], dtype=np.float32), target_fs
+
+
+# --------------------------------------------------------------------------
+# Service
+# --------------------------------------------------------------------------
 class PredictionService:
     """Loads a trained model + preprocessor and runs single-lead inference."""
 
     def __init__(self, model_path, device=None):
         self.device = device or torch.device(
             'cuda' if torch.cuda.is_available() else 'cpu')
+        self.model_path = model_path
         ckpt = torch.load(model_path, map_location=self.device, weights_only=False)
         if 'model_state_dict' not in ckpt:
             raise ValueError(
                 "El archivo no es un checkpoint de train.py "
                 "(falta 'model_state_dict').")
         self.preproc = ckpt.get('preproc')
-        self.classes = ckpt.get('classes') or (self.preproc.classes if self.preproc else None)
+        self.classes = ckpt.get('classes') or (self.preproc.classes if self.preproc
+                                               else None)
         config = ckpt.get('config', {}) or {}
-        num_cat = len(self.classes) if self.classes else int(config.get('num_categories', 5))
+        num_cat = len(self.classes) if self.classes else int(
+            config.get('num_categories', 5))
 
         self.model = network.build_network(num_categories=num_cat, **config)
         self.model.load_state_dict(ckpt['model_state_dict'])
         self.model.to(self.device).eval()
-        # convenient ordered class labels + a clinical-ish description map
+
+        # exposed training-time metrics (val_loss / val_acc were saved at each
+        # checkpoint). Full dev metrics are available via examples/cinc17/evaluate.py
+        self.meta = {
+            'val_loss': ckpt.get('val_loss'),
+            'val_acc': ckpt.get('val_acc'),
+            'epoch': ckpt.get('epoch'),
+        }
         self.class_to_desc = {
             'N': 'Normal',
             'A': 'Atrial fibrillation / flutter (AF)',
@@ -60,61 +106,80 @@ class PredictionService:
             '|': 'Silence / unclassifiable',
         }
 
+    def info(self):
+        return {
+            'model_path': self.model_path,
+            'classes': list(self.classes),
+            'device': str(self.device),
+            'train_fs': TRAIN_FS,
+            'meta': self.meta,
+            'class_desc': {c: self.class_to_desc.get(c, c) for c in self.classes},
+        }
+
     # ------------------------------------------------------------------ input
     def normalize(self, signal):
-        """Apply the saved global mean/std and return a (1, T) tensor."""
-        # The preserved Preproc stores mean/std; fall back to recomputing.
+        """Normalise amplitude and truncate to a multiple of STEP.
+
+        Returns (x_tensor (1,1,T), applied_fs). Amplitude normalisation uses the
+        saved global mean/std (same as training).
+        """
         if self.preproc is not None:
             mean = float(self.preproc.mean)
             std = float(self.preproc.std)
         else:
-            mean = float(signal.mean())
-            std = float(signal.std()) or 1.0
+            mean = float(np.asarray(signal).mean())
+            std = float(np.asarray(signal).std()) or 1.0
         x = (np.asarray(signal, dtype=np.float32) - mean) / std
-        # truncate to a multiple of STEP (matches load_ecg in the training port)
         x = x[:STEP * (len(x) // STEP)]
         return torch.from_numpy(np.ascontiguousarray(x[None, None, :])).to(self.device)
 
     # -------------------------------------------------------------- inference
-    def predict_signal(self, signal):
-        """Return dict with probs per output interval + per-record summary."""
+    def predict_signal(self, fs, signal):
+        """fs -> (Hz) input sampling rate; signal -> 1-D array.
+
+        Returns dict with probs per output interval + per-record summary.
+        """
+        fs = float(fs if fs and fs > 0 else TRAIN_FS)
+        signal, applied_fs = resample_to(signal, fs, TRAIN_FS)
         x = self.normalize(signal)
         with torch.no_grad():
-            probs = self.model(x).cpu().numpy()        # (1, T/256, num_classes)
-        probs = probs[0]                                # (T/256, num_classes)
+            probs = self.model(x).cpu().numpy()
+        probs = probs[0]
         pred_idx = probs.argmax(axis=-1)
         labels = [self.classes[i] for i in pred_idx]
 
-        # class counts / dominant class over the record (set-level prediction)
-        counts = {c: int((pred_idx == self.classes.index(c)).sum()) for c in self.classes
-                  if c in self.classes}
+        counts = {c: int((pred_idx == self.classes.index(c)).sum()) for c in
+                  self.classes if c in self.classes}
         total = len(labels) or 1
-        summary = sorted(
-            ({'label': c, 'desc': self.class_to_desc.get(c, c), 'count': v,
-              'pct': round(100.0 * v / total, 1)} for c, v in counts.items() if v),
-            key=lambda d: d['count'], reverse=True)
-
-        per_interval = [{'idx': i, 'label': labels[i],
+        summary = sorted(({'label': c, 'desc': self.class_to_desc.get(c, c),
+                           'count': v, 'pct': round(100.0 * v / total, 1)}
+                          for c, v in counts.items() if v),
+                         key=lambda d: d['count'], reverse=True)
+        per_interval = [{'idx': i, 'start_ms': round(i * STEP / applied_fs * 1000),
+                         'label': labels[i],
                          'desc': self.class_to_desc.get(labels[i], labels[i]),
                          'prob': round(float(probs[i, pred_idx[i]]), 3)}
                         for i in range(len(labels))]
+
         return {'probs': probs, 'labels': labels, 'per_interval': per_interval,
-                'summary': summary, 'dominant': summary[0]['label'] if summary else None,
-                'n_intervals': len(labels)}
+                'summary': summary,
+                'dominant': summary[0]['label'] if summary else None,
+                'n_intervals': len(labels),
+                'resampled': float(fs) != float(applied_fs),
+                'orig_fs': float(fs), 'applied_fs': float(applied_fs),
+                'n_samples_in': int(len(signal)),
+                'n_samples_out': int(len(signal))}
 
     # ------------------------------------------------------------------ plot
     def render_plot(self, fs, signal, result):
         """Render ECG trace + color-coded prediction bands as a base64 PNG."""
         import matplotlib
-        matplotlib.use('Agg')                      # headless backend
+        matplotlib.use('Agg')
         import matplotlib.pyplot as plt
 
         signal = np.asarray(signal, dtype=np.float32)
-        n = len(signal)
-        t_sec = np.arange(n) / fs
-        n_int = result['n_intervals']
+        t_sec = np.arange(len(signal)) / (result['applied_fs'] or TRAIN_FS)
 
-        # colour per class
         palette = {'N': '#2ca02c', 'A': '#d62728', 'O': '#ff7f0e',
                    '~': '#7f7f7f', '|': '#1f77b4'}
         default = '#9467bd'
@@ -123,30 +188,22 @@ class PredictionService:
             2, 1, figsize=(13, 6.5), gridspec_kw={'height_ratios': [3, 1]},
             sharex=True)
         fig.subplots_adjust(hspace=0.15)
-
-        # --- trace ---
         ax.plot(t_sec, signal, color='#1a1a2e', linewidth=0.8)
         ax.set_ylabel('Amplitud (mV)')
         ax.set_title('ECG — predicción por intervalo de {} muestras (~{:.2f} s)'.format(
-            STEP, STEP / fs))
+            STEP, STEP / (result['applied_fs'] or TRAIN_FS)))
         ax.grid(alpha=0.25)
-
-        # color bands per output interval on a secondary strip => use a twin axis
-        # draw each interval as a shaded region on the *signal* axes but below care.
-        # Simpler: shade on the top axis using axvspan with low alpha.
-        step_samples = STEP
-        for i in range(n_int):
+        fs_eff = result['applied_fs'] or TRAIN_FS
+        for i in range(result['n_intervals']):
             c = palette.get(result['labels'][i], default)
-            start = i * step_samples / fs
-            end = min((i + 1) * step_samples / fs, t_sec[-1])
+            start = i * STEP / fs_eff
+            end = min((i + 1) * STEP / fs_eff, t_sec[-1])
             ax.axvspan(start, end, color=c, alpha=0.10, linewidth=0)
-        # legend of detected classes
         handles = [plt.Rectangle((0, 0), 1, 1, color=palette.get(c, default))
                    for c in dict.fromkeys(result['labels'])]
         ax.legend(handles, list(dict.fromkeys(result['labels'])),
                   loc='upper right', fontsize=9, framealpha=0.9)
 
-        # --- dominant class bar (probability) ---
         s = result['summary']
         bar_labels = [d['label'] + ' (' + d['desc'][:16] + ')' for d in s]
         bar_vals = [d['pct'] for d in s]
@@ -164,25 +221,54 @@ class PredictionService:
         plt.close(fig)
         return base64.b64encode(buf.getvalue()).decode('ascii')
 
+    # ------------------------------------------------- plotly (interactive)
+    def render_plotly(self, fs, signal, result, max_points=MAX_PLOT_POINTS):
+        """Return JSON-serialisable Plotly traces + layout.
+
+        Decimates the raw signal for the browser and overlays per-interval
+        colour bands, so the user gets zoom/pan/tooltips without a CDN.
+        """
+        signal = np.asarray(signal, dtype=np.float32)
+        fs_eff = float(result['applied_fs'] or TRAIN_FS)
+        t = (np.arange(len(signal)) / fs_eff).round(4)
+
+        # optional light decimation for huge records
+        step = max(1, int(np.ceil(len(signal) / max_points)))
+        if step > 1:
+            idx = np.arange(0, len(signal), step)
+            t = t[idx]
+            signal = signal[idx]
+
+        # colour bands as filled rectangles (use trace_via vrect? no -> shapes)
+        shapes = []
+        for i in range(result['n_intervals']):
+            c = _color(result['labels'][i])
+            start = round(i * STEP / fs_eff, 4)
+            end = round(min((i + 1) * STEP / fs_eff, t[-1] if len(t) else start), 4)
+            shapes.append({'type': 'rect', 'xref': 'x', 'yref': 'paper',
+                           'x0': start, 'x1': end, 'y0': 0, 'y1': 1,
+                           'fillcolor': c, 'opacity': 0.10, 'line': {'width': 0}})
+
+        trace = {'x': np.asarray(t).tolist(), 'y': np.asarray(signal).tolist(),
+                 'mode': 'lines', 'name': 'ECG', 'type': 'scatter',
+                 'line': {'color': '#1a1a2e', 'width': 1}}
+        return {'traces': [trace], 'shapes': shapes,
+                'interval_s': round(STEP / fs_eff, 4)}
+
+
+def _color(label):
+    palette = {'N': '#2ca02c', 'A': '#d62728', 'O': '#ff7f0e',
+               '~': '#7f7f7f', '|': '#1f77b4'}
+    return palette.get(label, '#9467bd')
+
 
 # --------------------------------------------------------------------------
-# CSV parsing helpers (used by app.py)
+# CSV / file parsing helpers (used by app.py)
 # --------------------------------------------------------------------------
-def parse_ecg_csv(text, default_fs=DEFAULT_FS):
-    """Parse an uploaded CSV of a single-lead ECG.
-
-    Accepted layouts:
-      * Reference format: first numeric row is `fs, s0, s1, s2, ...`
-        (an optional header line naming the lead may precede it).
-      * Column format: one signal sample per row; a header line whose FIRST
-        cell holds the sampling rate (e.g. `300,Lead`), else default_fs is used.
-
-    Returns (fs, signal_1d).
-    """
+def parse_ecg_csv(text, default_fs=TRAIN_FS):
+    """Parse an uploaded CSV of a single-lead ECG. Returns (fs, signal_1d)."""
     lines = [ln for ln in text.splitlines()
-             if ln.strip() and not ln.strip().startswith(('#', '%'))]
-
-    # split into tokens, keeping per-row raw for header detection
+             if ln.strip() and not ln.strip().startswith(('#', '%', 'L'))]
     rows = []
     for ln in lines:
         toks = [t for t in ln.replace(',', ' ').split() if t]
@@ -191,11 +277,8 @@ def parse_ecg_csv(text, default_fs=DEFAULT_FS):
     fs = None
     signal = []
     data_rows = []
-    header_info = None
-
     for toks in rows:
-        floats = []
-        ok = True
+        floats, ok = [], True
         for t in toks:
             try:
                 floats.append(float(t))
@@ -203,7 +286,6 @@ def parse_ecg_csv(text, default_fs=DEFAULT_FS):
                 ok = False
                 break
         if not ok:
-            # header line: try to read fs from the first cell
             try:
                 candidate = float(toks[0])
                 if fs is None and candidate > 0:
@@ -216,23 +298,18 @@ def parse_ecg_csv(text, default_fs=DEFAULT_FS):
     if not data_rows:
         raise ValueError("No se encontraron datos numéricos en el CSV.")
 
-    # determine layout
     if len(data_rows) == 1 or len(data_rows[0]) > 1:
-        # row layout: first value of first data row = fs, rest = signal
         first = data_rows[0]
-        if len(first) > 1 and fs is None:
-            if first[0] > 0:
-                fs = first[0]
+        if len(first) > 1 and fs is None and first[0] > 0:
+            fs = first[0]
             signal = first[1:]
             for r in data_rows[1:]:
                 signal.extend(r)
         else:
-            # single column of numbers in a one-row file => treat as signal
             signal = first
             for r in data_rows[1:]:
                 signal.extend(r)
     else:
-        # column layout (one sample per row)
         signal = [r[0] for r in data_rows]
 
     signal = np.asarray(signal, dtype=np.float32)
@@ -243,21 +320,29 @@ def parse_ecg_csv(text, default_fs=DEFAULT_FS):
     return float(fs), signal
 
 
+def load_uploaded_file(path, filename):
+    """Load a CSV / .mat / .npy / .dat (format-212) upload into (fs, signal).
+
+    Returns (fs, signal_1d). For .mat/.dat the sampling rate may be unavailable,
+    so it defaults to TRAIN_FS (the app announces this).
+    """
+    ext = os.path.splitext(filename)[1].lower()
+    if ext in ('.csv', ''):
+        with open(path, 'r', encoding='utf-8', errors='replace') as f:
+            return parse_ecg_csv(f.read())
+    elif ext == '.npy':
+        sig = np.load(path).astype(np.float32).squeeze()
+        return float(TRAIN_FS), sig
+    else:  # .mat / .dat (single-lead)
+        sig = load.load_ecg(os.path.abspath(path))
+        return float(TRAIN_FS), np.asarray(sig, dtype=np.float32).squeeze()
+
+
 def find_best_model(models_dir):
     """Return the checkpoint with the lowest val_loss (first number in name)."""
-    if not models_dir or not os.path.isdir(models_dir):
-        return None
-    ptfiles = []
-    for root, _, files in os.walk(models_dir):
-        ptfiles += [os.path.join(root, f) for f in files if f.endswith('.pt')]
-    if not ptfiles:
-        return None
+    return util.find_best_model(models_dir)
 
-    def key(p):
-        base = os.path.basename(p)
-        try:
-            return float(base.split('-')[0])
-        except (ValueError, IndexError):
-            return float('inf')
-    ptfiles.sort(key=key)
-    return ptfiles[0]
+
+def list_checkpoints(models_dir):
+    """Return all .pt checkpoints under models_dir sorted by best (val_loss)."""
+    return util.list_checkpoints(models_dir)

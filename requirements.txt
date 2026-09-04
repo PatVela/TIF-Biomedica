@@ -16,3 +16,9 @@ tqdm==4.70.0
 # ---- Web app (Flask) ----
 flask>=3.1,<4
 matplotlib>=3.9
+
+# ---- Web app: servidores WSGI de producción ----
+# gunicorn (Linux/macOS/servidores) — descomenta en despliegue
+#gunicorn>=23.0
+# waitress (Windows nativo) — descomenta en despliegue
+waitress>=3.0

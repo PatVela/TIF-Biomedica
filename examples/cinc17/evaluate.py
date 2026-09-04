@@ -72,6 +72,20 @@ def weighted_f1(per_class, y_true):
     return float(sum(per_class[c]['f1'] * counts[c] for c in per_class) / total)
 
 
+def challenge_f1(per_class):
+    """OFFICIAL PhysioNet CinC2017 score.
+
+    The challenge defines the score as the average of the class-wise F1 over
+    NORMAL (N), AF (A) and OTHER (O) ONLY — the '~' (noise) class is EXCLUDED
+    from the average. This is the metric the paper reports (F1 = 0.83 on the
+    hidden test set) and the only one directly comparable to it.
+    """
+    targets = {c for c in ('N', 'A', 'O') if c in per_class}
+    if not targets:
+        return 0.0
+    return float(np.mean([per_class[c]['f1'] for c in targets]))
+
+
 def accuracy(y_true, y_pred):
     return (np.asarray(y_true) == np.asarray(y_pred)).mean()
 
@@ -100,8 +114,10 @@ def report(y_true, y_pred, labels, name):
     print("  EVALUACION: {}".format(name))
     print("=" * 60)
     print("Exactitud (accuracy): {:.4f}".format(acc))
-    print("Macro-F1             : {:.4f}".format(macro_f1(per_class)))
+    print("Macro-F1 (todas)     : {:.4f}".format(macro_f1(per_class)))
     print("Weighted-F1          : {:.4f}".format(weighted_f1(per_class, y_true)))
+    print("Challenge-F1 (N/A/O) : {:.4f}   <- métrica OFICIAL PhysioNet/paper".format(
+        challenge_f1(per_class)))
 
     print("\n  Matriz de confusión (fila = real, columna = predicho):")
     print(pretty_matrix(cm, labels))
@@ -132,7 +148,7 @@ def main():
     # resolve best model if not given
     model_path = args.model_path
     if not model_path:
-        best = find_best_model(args.saved)
+        best = util.find_best_model(args.saved)
         if not best:
             print("No checkpoint found; pass --model_path or --saved.")
             sys.exit(1)
@@ -141,7 +157,7 @@ def main():
 
     # import predict after path setup
     sys.path.insert(0, _REPO_ROOT)
-    from ecg import predict as pred_mod
+    from ecg import predict as pred_mod, util
 
     # ground-truth labels: each record one label (its class)
     with open(args.data_json) as f:
@@ -167,26 +183,13 @@ def main():
     if args.level in ("record", "both"):
         report(true_records, y_pred_records, labels, "NIVEL REGISTRO")
     if args.level in ("interval", "both"):
-        report(y_true_intervals, y_pred_intervals, labels, "NIVEL INTERVALO")
-
-
-def find_best_model(models_dir):
-    if not models_dir or not os.path.isdir(models_dir):
-        return None
-    ptfiles = []
-    for root, _, files in os.walk(models_dir):
-        ptfiles += [os.path.join(root, f) for f in files if f.endswith('.pt')]
-    if not ptfiles:
-        return None
-
-    def key(p):
-        base = os.path.basename(p)
-        try:
-            return float(base.split('-')[0])
-        except (ValueError, IndexError):
-            return float('inf')
-    ptfiles.sort(key=key)
-    return ptfiles[0]
+        # NOTE: CinC2017 has no per-interval ground truth. The paper reports
+        # ONLY the record-level metric (majority vote) for this dataset; the
+        # "interval" numbers below are an INTERNAL diagnostic (comparing each
+        # 256-sample output against the record's replicated label) and should
+        # NOT be presented as a replica of the paper's figure.
+        report(y_true_intervals, y_pred_intervals, labels,
+               "NIVEL INTERVALO (solo diagnóstico interno, no es la métrica del paper)")
 
 
 if __name__ == '__main__':

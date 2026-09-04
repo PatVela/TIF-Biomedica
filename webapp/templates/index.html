@@ -12,53 +12,96 @@
     <p class="subtitle">
       Réplica en PyTorch de <em>Cardiologist-Level Arrhythmia Detection
       and Classification</em> (Hannun et al., <em>Nature Medicine</em> 2019).
-      Modelo entrenado con PhysioNet <strong>CinC2017</strong>.
+      Modelo entrenado con PhysioNet <strong>CinC2017</strong> (300 Hz).
     </p>
   </header>
 
   <main class="container">
     <section class="card">
-      <h2>1. Sube una señal de ECG</h2>
-      <p class="hint">
-        Archivo <strong>CSV</strong> de una sola derivación. Formatos admitidos:
-      </p>
-      <ul class="hint">
-        <li><strong>Formato fila</strong>: <code>300,&nbsp;12.0,&nbsp;12.1,&nbsp;...&nbsp;</code>
-            (la <em>primera</em> celda de la primera fila de números = frecuencia de
-            muestreo en Hz; opcionalmente una línea de encabezado con el nombre de
-            la derivación).</li>
-        <li><strong>Formato columna</strong>: una muestra por fila; si el encabezado
-            empieza con la frecuencia (p.ej. <code>300,Lead</code>) se usa esa, si no
-            se asume <strong>{{ model_info.default_fs if model_info else 300 }} Hz</strong>.</li>
-      </ul>
-      <form id="uploadForm" enctype="multipart/form-data">
-        <input type="file" id="file" name="file" accept=".csv,text/csv" required>
-        <button type="submit" id="btn">Clasificar</button>
-      </form>
-      <div id="status" class="status"></div>
-    </section>
-
-    <section class="card" id="result" hidden>
-      <h2>2. Resultados</h2>
-      <div id="summaryBox" class="summary"></div>
-      <div class="plot-wrap">
-        <img id="plotImg" alt="Trazado ECG con predicción" class="plot">
+      <h2>1. Modelo</h2>
+      <div class="model-row">
+        <label>
+          Checkpoint:
+          <select id="modelSel">
+            {% for m in checkpoints %}
+              <option value="{{ m }}">{{ m }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <button type="button" id="btnSwitch">Cambiar modelo</button>
       </div>
-      <div id="intervalList" class="intervals"></div>
-    </section>
-
-    <section class="card">
-      <h2>Modelo</h2>
       <table class="model-table">
         <tbody>
           <tr><th>Device</th><td>{{ model_info.device if model_info else '—' }}</td></tr>
           <tr><th>Clases</th><td>{{ (model_info.classes | join(', ')) if model_info else '—' }}</td></tr>
-          <tr><th>Intervalo de salida</th><td>cada 256 muestras (una predicción por intervalo)</td></tr>
+          <tr><th>Intervalo de salida</th><td>cada 256 muestras (≈{{ '0.85' }} s a 300 Hz)</td></tr>
+          <tr><th>Val. loss / acc (entrenam.)</th>
+              <td>
+                {% if model_info and model_info.meta %}
+                  {{ '%.4f' % model_info.meta.val_loss }} / {{ '%.3f' % model_info.meta.val_acc }}
+                  <span class="muted">(época {{ model_info.meta.epoch }})</span>
+                {% else %}—{% endif %}
+              </td></tr>
         </tbody>
       </table>
+      <p class="hint muted">
+        Métricas completas (accuracy, macro-F1, <code>Challenge-F1</code>, matriz de
+        confusión) sobre el dev set: <code>python examples/cinc17/evaluate.py --saved {{ models_dir }}</code>
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>2. Señal de entrada</h2>
+      <div class="hint">
+        Archivo <strong>CSV</strong> (una derivación), <strong>.mat</strong>,
+        <strong>.dat</strong> o <strong>.npy</strong>. Formatos CSV:
+      </div>
+      <ul class="hint">
+        <li><strong>Formato fila</strong>: <code>300,&nbsp;12.0,&nbsp;12.1,&nbsp;...</code>
+            (primera celda de la primera fila numérica = frecuencia en Hz).</li>
+        <li><strong>Formato columna</strong>: una muestra por fila (se asume 300 Hz si no hay frecuencia).</li>
+      </ul>
+
+      <div id="dropzone" class="dropzone">
+        <p>Arrastra el archivo aquí <span class="muted">o</span></p>
+        <input type="file" id="file" name="file"
+               accept=".csv,.mat,.dat,.npy,text/csv" required>
+      </div>
+
+      <div class="row-inline">
+        <span class="muted">Etiqueta real (opcional, para comparar):</span>
+        <input type="text" id="trueLabel" class="label-input"
+               list="classList" placeholder="ej. N, A, O, ~">
+        <datalist id="classList">
+          {% for c in model_info.classes if model_info %}<option value="{{ c }}">{% endfor %}
+        </datalist>
+      </div>
+
+      <div class="btn-row">
+        <button type="button" id="btnExample" class="secondary">Probar con ejemplo</button>
+        <button type="submit" id="btnClassify">Clasificar</button>
+      </div>
+      <div id="status" class="status" role="status"></div>
+    </section>
+
+    <section class="card" id="result" hidden>
+      <div class="result-head">
+        <h2>3. Resultados</h2>
+        <div class="btn-row">
+          <button type="button" id="btnExportCsv" class="secondary">Exportar CSV</button>
+          <button type="button" id="btnExportJson" class="secondary">Exportar JSON</button>
+          <button type="button" id="btnExportPng" class="secondary">Guardar PNG</button>
+        </div>
+      </div>
+      <div id="notice" class="notice"></div>
+      <div id="summaryBox" class="summary"></div>
+      <div id="gtBox" class="gt"></div>
+      <div class="plot-wrap"><div id="plotDiv"></div></div>
+      <div id="intervalList" class="intervals"></div>
     </section>
   </main>
 
+  <script src="{{ url_for('static', filename='plotly.min.js') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a36085279eff892e',t:'MTc4ODU2MTg4MA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
