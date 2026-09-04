@@ -1,0 +1,302 @@
+/* General Body and Container Styles */
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #1a202c !important; /* Fondo oscuro original */
+    color: #e2e8f0 !important; /* Texto claro original */
+}
+
+.container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 1.5rem;
+    background-color: #2d3748 !important; /* Fondo de contenedor más oscuro original */
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Navbar Styles */
+.navbar {
+    background-color: #21242e !important; /* Even darker for navbar */
+    border-bottom: 1px solid #3b4050;
+}
+
+.navbar-brand {
+    color: #f0f0f0 !important; /* Brighter white for brand */
+    font-weight: 600;
+}
+
+/* Jumbotron Styles */
+.jumbotron {
+    background-color: #3b4050 !important; /* Match container background */
+    color: #f0f0f0 !important;
+    padding: 2.5rem 2rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+/* Card Styles */
+.card {
+    background-color: #4a5066; /* Medium charcoal/blue-gray for cards */
+    border: none;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    background-color: #3b4050; /* Match container background for card headers */
+    color: #f0f0f0;
+    font-weight: bold;
+    border-bottom: none;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    padding: 1rem 1.25rem;
+}
+
+.card-body {
+    background-color: #4a5066; /* Match card background */
+    color: #e0e0e0;
+    padding: 1.25rem;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+.card.summary-card {
+    background-color: #5d6b8a !important; /* Un azul-gris más claro para resaltar el resumen general */
+    border: 2px solid #7fa1e8;
+    box-shadow: 0 2px 8px 0 rgba(127,161,232,0.10);
+}
+
+/* Table Styles */
+.table {
+    color: #e0e0e0; /* Light text for tables */
+    background-color: #4a5568 !important; /* Slightly lighter blue-gray for table body */
+    border-radius: 8px; /* Rounded corners for the table itself */
+    overflow: hidden; /* Ensures rounded corners clip content */
+}
+
+.table thead th {
+    background-color: #2d3748 !important; /* Match card header background for table headers */
+    color: #cbd5e0 !important;
+    border-bottom: 1px solid #4a5066; /* Darker border for header */
+    padding: 0.75rem 1.25rem;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0, 0, 0, 0.1); /* Subtle stripe effect */
+}
+
+.table-striped tbody tr:nth-of-type(even) {
+    background-color: rgba(0, 0, 0, 0.05); /* Even more subtle stripe */
+}
+
+.table-bordered th, .table-bordered td {
+    border: 1px solid #4a5066; /* Consistent border color */
+}
+
+/* Button Styles (Bootstrap defaults with adjusted colors) */
+.btn {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    font-weight: 700;
+    color: #fff;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition-property: all;
+    transition-duration: 300ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-primary {
+    background-color: #2563eb !important;
+}
+.btn-primary:hover {
+    background-color: #1d4ed8 !important;
+}
+.btn-secondary {
+    background-color: #4b5563 !important;
+}
+.btn-secondary:hover {
+    background-color: #374151 !important;
+}
+
+/* Custom file input adjustments for dark theme */
+.custom-file-label {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 1;
+    height: calc(2.25rem + 2px);
+    padding: 0.375rem 0.75rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #495057;
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.custom-file-label::after {
+    content: "Explorar";
+    background-color: #4a5568;
+    color: #e2e8f0;
+    border-left: 1px solid #2d3748;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0 0.25rem 0.25rem 0;
+    margin-left: 0.75rem;
+}
+
+/* Loader Styles */
+.loader {
+    border: 4px solid rgba(255, 255, 255, 0.3); /* Light grey for loader base */
+    border-top: 4px solid #1abc9c; /* Bright teal/green for spinner */
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin: 30px auto;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Collapsible Buttons and Content */
+.collapsible {
+    background-color: #5d6b8a; /* Más claro que el card, para resaltar */
+    color: #fff;
+    cursor: pointer;
+    padding: 12px 18px;
+    width: 100%;
+    border: none; /* Quitar borde */
+    text-align: left;
+    outline: none;
+    font-size: 1.1em;
+    font-weight: 600;
+    transition: background-color 0.3s, box-shadow 0.3s;
+    border-radius: 0.5rem;
+    margin-top: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 8px 0 rgba(127,161,232,0.13), 0 1.5px 4px 0 rgba(0,0,0,0.10);
+}
+.collapsible.active, .collapsible:focus, .collapsible:hover {
+    background-color: #7fa1e8;
+    color: #fff;
+    box-shadow: 0 4px 16px 0 rgba(127,161,232,0.18), 0 2px 8px 0 rgba(0,0,0,0.13);
+}
+.collapsible::after {
+    content: '\002B';
+    font-size: 0.9em;
+    color: #fff;
+    float: right;
+    margin-left: 5px;
+    transition: transform 0.3s;
+}
+.collapsible.active::after {
+    content: '\2212';
+    transform: rotate(0deg);
+}
+.collapsible:hover {
+    background-color: #4a5066;
+}
+
+.content {
+    background-color: #5d6b8a; /* Más claro que el card, para resaltar el fondo del colapsable */
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    margin-top: 0;
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s;
+    display: block;
+    padding: 0;
+    box-shadow: 0 2px 8px 0 rgba(127,161,232,0.10);
+}
+.content.show {
+    max-height: 2000px; /* Suficiente para la mayoría de los contenidos */
+    padding: 15px; /* Solo cuando está abierto */
+    box-shadow: 0 4px 16px 0 rgba(127,161,232,0.13);
+}
+
+/* --- Estilos específicos migrados desde index.html --- */
+
+/* Tablas de predicción detallada y media */
+#detailedPredictionsTable tbody tr td {
+    color: #93c5fd;
+}
+#detailedPredictionsTable tbody tr:nth-child(odd) td {
+    color: #67e8f9;
+}
+#averagePredictionTable tbody tr td {
+    color: #93c5fd;
+}
+#averagePredictionTable tbody tr:nth-child(odd) td {
+    color: #67e8f9;
+}
+
+/* Barra de progreso */
+.progress-section {
+    width: 100%;
+    margin-top: 20px;
+    text-align: center;
+}
+.progress-bar-container {
+    width: 80%;
+    background-color: #e0e0e0;
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 10px auto;
+    height: 25px;
+}
+.progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background-color: #28a745;
+    text-align: center;
+    color: white;
+    line-height: 25px;
+    transition: width 0.4s ease-in-out;
+}
+.progress-text {
+    font-size: 1.1em;
+    color: #ecf0f1;
+    margin-top: 5px;
+}
+
+/* Responsividad de imágenes de segmento */
+.segment-image {
+    width: 100%;
+    max-width: 300px;
+    height: auto;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+    border: 1px solid #6b7280;
+}
+@media (min-width: 640px) {
+    .segment-image {
+        width: calc(50% - 0.5rem);
+    }
+}
+@media (min-width: 768px) {
+    .segment-image {
+        width: calc(33.333% - 0.666rem);
+    }
+}
+
+/* Contenido interno de colapsables para imágenes */
+.collapsible-inner-content {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+}

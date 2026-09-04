@@ -1,0 +1,99 @@
+{% extends "base.html" %} 
+
+{% block content %}
+<!-- Jumbotron: Sección de bienvenida y descripción de la aplicación -->
+<div class="jumbotron bg-light text-center" id="mainJumbotron">
+    <h1 class="display-4">Clasificador de Latidos ECG</h1>
+    <p class="lead">Cargue un archivo de datos de ECG en formato <strong>.csv</strong> (menor a 100 MB) para analizar y clasificar los tipos de latidos cardíacos.</p>
+</div>
+
+<!-- Contenido principal de la aplicación: leyenda de códigos y formularios de carga -->
+<div class="row" id="mainContentRow">
+    <!-- Columna izquierda: Leyenda de códigos de clasificación y Datos del Paciente -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <strong>Leyenda de Códigos</strong>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless">
+                    <tbody>
+                        <tr><td><strong>N:</strong></td><td>Latido normal</td></tr>
+                        <tr><td><strong>A:</strong></td><td>Latido auricular prematuro</td></tr>
+                        <tr><td><strong>V:</strong></td><td>Contracción ventricular prematura</td></tr>
+                        <tr><td><strong>F:</strong></td><td>Fusión de latido ventricular y normal</td></tr>
+                        <tr><td><strong>Paced:</strong></td><td>Latido a ritmo (marcapasos)</td></tr>
+                        <tr><td><strong>Noise:</strong></td><td>Ruido (sin latido)</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Nuevo botón colapsable para Datos del Paciente -->
+        <div id="patientDataSection" style="display:none;">
+            <button class="collapsible btn btn-info btn-block mt-4" id="patientDataCollapsible">Datos del Paciente</button>
+            <div class="content" id="patientDataContent">
+                <div class="card mt-0"> {# mt-0 para que se pegue al botón colapsable #}
+                    <div class="card-body">
+                        <p id="patientNameResult"></p>
+                        <p id="patientAgeResult"></p>
+                        <p id="patientSexResult"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Columna derecha: Formularios de carga y área de resultados -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <!-- Formulario para cargar archivos CSV para predicción directa -->
+                <form id="upload-file" method="post" enctype="multipart/form-data">
+                    <div class="custom-file">
+                        <input type="file" class="custom-file-input" name="file" id="imageUpload" accept=".csv">
+                        <label class="custom-file-label" for="imageUpload">Seleccionar archivo CSV...</label>
+                    </div>
+                </form>
+
+                <!-- Nueva sección para subir y formatear archivos de ECG WFDB (.mat, .hea, .dat) -->
+                <form id="upload-ecg-for-format" method="post" enctype="multipart/form-data" class="mt-4">
+                    <div class="custom-file">
+                        <!-- Input de archivo para múltiples extensiones WFDB -->
+                        <input type="file" class="custom-file-input" name="ecg_file_to_format" id="ecgFileToFormat" accept=".mat,.hea,.dat" multiple>
+                        <label class="custom-file-label" for="ecgFileToFormat">Seleccionar archivos ECG para formatear (.mat, .hea, .dat)...</label>
+                    </div>
+                    <div class="text-center mt-3 d-flex justify-content-center flex-wrap">
+                        <!-- Botón para iniciar el formateo a CSV -->
+                        <button type="button" class="btn btn-primary btn-lg mx-2" id="btn-format-ecg">Formatear ECG a CSV</button>
+                        <!-- Nuevo botón para formatear ECG a CSV Completo -->
+                        <button type="button" class="btn btn-secondary btn-lg mx-2" id="btn-format-ecg-full">Formatear ECG a CSV Completo</button>
+                    </div>
+                </form>
+
+                <!-- Sección para los botones de acción y la barra de progreso -->
+                <div class="text-center mt-4">
+                    <!-- Sección del botón de predicción (inicialmente oculta) -->
+                    <div class="image-section" style="display:none;">
+                        <button type="button" class="btn btn-success btn-lg" id="btn-predict">¡Predecir Ahora!</button>
+                    </div>
+
+                    <!-- Barra de Progreso (inicialmente oculta) -->
+                    <div class="progress-section" style="display:none;">
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" style="width: 0%;"></div>
+                        </div>
+                        <div class="progress-text">0%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Área donde se mostrarán los resultados de la predicción (tablas y gráficos) -->
+        <div id="result" class="mt-4">
+            <!-- Los resultados se insertarán aquí dinámicamente por JavaScript -->
+            <!-- Incluirá botones colapsables para "Análisis por Segmento", "Media de la Predicción" y "Resumen General" -->
+        </div>
+    </div>
+</div>
+{% endblock %}
