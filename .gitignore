@@ -1,27 +1,32 @@
-# ==========================================
-# 1. ARCHIVOS Y CARPETAS ESPECÍFICAS DEL PROYECTO
-# ==========================================
-# Datasets y conjuntos de entrenamiento
+# ============================================================
+#  TIF-Biomedica — ECG PyTorch (replica Hannun et al. 2019)
+#  Commit solo código + configs. NO datos, modelos ni logs.
+# ============================================================
+
+# ---------- Datasets y conjuntos de entrenamiento ----------
 dataset/
+dataset2017/
 dataset2020/
 dataset2020_procesado/
 dataset2020_prueba/
 training2017/
 training2017.zip
+examples/cinc17/data/
+examples/cinc17/synthetic/
+examples/cinc17/train.json
+examples/cinc17/dev.json
 
-# Resultados, logs y salidas
+# ---------- Resultados, modelos entrenados y salidas ----------
+saved/
+saved_synthetic/
 resultados/
 logs/
 modelos/
+plots/
 /data
 /cache
-/saved
-/plots
 
-# ==========================================
-# 2. FORMATOS DE DATOS Y MODELOS (ECG / ML)
-# ==========================================
-# Archivos de señal e imágenes (WFDB, PhysioNet, Matlab, etc.)
+# ---------- Datos crudos / serializados (pesados, no versionar) ----------
 *.mat
 *.hea
 *.atr
@@ -31,11 +36,12 @@ modelos/
 # Modelos guardados y comprimidos
 *.keras
 *.h5
-*.zip
+*.pt
+*.pth
+*.pk
+*.pkl
 
-# ==========================================
-# 3. ENTORNOS VIRTUALES Y CONFIGURACIÓN DE IDEs
-# ==========================================
+# ---------- Entornos virtuales ----------
 .vscode/
 ECG-env/
 env/
@@ -46,68 +52,36 @@ ENV/
 .spyderproject
 .ropeproject
 
-# ==========================================
-# 4. PYTHON Y COMPILADOS (Estándar)
-# ==========================================
-# Byte-compiled / archivos de caché
+# ---------- Python: compilados y cachés ----------
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-
-# Distribución / Empaquetado
-.Python
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
 *.egg-info/
 .installed.cfg
 *.egg
 
-# PyInstaller
-*.manifest
-*.spec
-
-# ==========================================
-# 5. PRUEBAS, COBERURA Y LOGS
-# ==========================================
-pip-log.txt
-pip-delete-this-directory.txt
-htmlcov/
-.tox/
+# ---------- Logs, cobertura y pruebas ----------
+*.log
+coverage.xml
 .coverage
 .coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*,cover
+htmlcov/
+.tox/
 .hypothesis/
-*.log
 
-# ==========================================
-# 6. HERRAMIENTAS, MARCOS Y EDITOR
-# ==========================================
-# Jupyter / IPython
+# ---------- Web app (uploads de ejemplo, no versionar) ----------
+webapp/uploads/
+webapp/example.csv
+webapp/static/preview.png
+
+# ---------- Jupyter / notebooks ----------
 .ipynb_checkpoints
 
-# Django / Flask / Scrapy / Sphinx
-local_settings.py
-instance/
-.webassets-cache
-.scrapy
-docs/_build/
-target/
-
-# Celery, Vim, Traducciones
-celerybeat-schedule
+# ---------- Sistema / editor ----------
+.DS_Store
+Thumbs.db
 *.swp
-*.mo
-*.pot
+.idea/

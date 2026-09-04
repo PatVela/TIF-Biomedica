@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clasificación de ECG · Replica Hannun (PyTorch)</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Clasificador de Arritmias — ECG</h1>
+    <p class="subtitle">
+      Réplica en PyTorch de <em>Cardiologist-Level Arrhythmia Detection
+      and Classification</em> (Hannun et al., <em>Nature Medicine</em> 2019).
+      Modelo entrenado con PhysioNet <strong>CinC2017</strong>.
+    </p>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>1. Sube una señal de ECG</h2>
+      <p class="hint">
+        Archivo <strong>CSV</strong> de una sola derivación. Formatos admitidos:
+      </p>
+      <ul class="hint">
+        <li><strong>Formato fila</strong>: <code>300,&nbsp;12.0,&nbsp;12.1,&nbsp;...&nbsp;</code>
+            (la <em>primera</em> celda de la primera fila de números = frecuencia de
+            muestreo en Hz; opcionalmente una línea de encabezado con el nombre de
+            la derivación).</li>
+        <li><strong>Formato columna</strong>: una muestra por fila; si el encabezado
+            empieza con la frecuencia (p.ej. <code>300,Lead</code>) se usa esa, si no
+            se asume <strong>{{ model_info.default_fs if model_info else 300 }} Hz</strong>.</li>
+      </ul>
+      <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="file" name="file" accept=".csv,text/csv" required>
+        <button type="submit" id="btn">Clasificar</button>
+      </form>
+      <div id="status" class="status"></div>
+    </section>
+
+    <section class="card" id="result" hidden>
+      <h2>2. Resultados</h2>
+      <div id="summaryBox" class="summary"></div>
+      <div class="plot-wrap">
+        <img id="plotImg" alt="Trazado ECG con predicción" class="plot">
+      </div>
+      <div id="intervalList" class="intervals"></div>
+    </section>
+
+    <section class="card">
+      <h2>Modelo</h2>
+      <table class="model-table">
+        <tbody>
+          <tr><th>Device</th><td>{{ model_info.device if model_info else '—' }}</td></tr>
+          <tr><th>Clases</th><td>{{ (model_info.classes | join(', ')) if model_info else '—' }}</td></tr>
+          <tr><th>Intervalo de salida</th><td>cada 256 muestras (una predicción por intervalo)</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

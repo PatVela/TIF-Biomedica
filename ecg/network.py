@@ -1,139 +1,249 @@
-from keras import backend as K
+"""PyTorch port of awni/ecg network.py.
 
-def _bn_relu(layer, dropout=0, **params):
-    from keras.layers import BatchNormalization
-    from keras.layers import Activation
-    layer = BatchNormalization()(layer)
-    layer = Activation(params["conv_activation"])(layer)
+Replicates the deep residual CNN from:
+    Cardiologist-Level Arrhythmia Detection and Classification in Ambulatory
+    Electrocardiograms Using a Deep Neural Network (Hannun et al., Nature Medicine 2019)
 
-    if dropout > 0:
-        from keras.layers import Dropout
-        layer = Dropout(params["conv_dropout"])(layer)
+The original Keras network (examples/cinc17/config.json) is mapped 1:1. There is
+one important representational difference: Keras uses (batch, time, channels=1)
+and Conv1D; PyTorch uses (batch, channels=1, time). Inputs given to this model are
+always (batch, 1, time). The output is (batch, time, num_categories) with softmax
+over the category axis, matching Keras' TimeDistributed(Dense)+softmax.
+"""
 
-    return layer
-
-def add_conv_weight(
-        layer,
-        filter_length,
-        num_filters,
-        subsample_length=1,
-        **params):
-    from keras.layers import Conv1D 
-    layer = Conv1D(
-        filters=num_filters,
-        kernel_size=filter_length,
-        strides=subsample_length,
-        padding='same',
-        kernel_initializer=params["conv_init"])(layer)
-    return layer
+import torch
+import torch.nn as nn
 
 
-def add_conv_layers(layer, **params):
-    for subsample_length in params["conv_subsample_lengths"]:
-        layer = add_conv_weight(
-                    layer,
-                    params["conv_filter_length"],
-                    params["conv_num_filters_start"],
-                    subsample_length=subsample_length,
-                    **params)
-        layer = _bn_relu(layer, **params)
-    return layer
+# ----------------------------------------------------------------------------
+# Same ("SAME") padding, replicating Keras/TensorFlow Conv1D & MaxPool1D.
+# Keras 'same' pads asymmetrically: output length = ceil(input / stride).
+# ----------------------------------------------------------------------------
+def _same_padding(n: int, kernel: int, stride: int) -> tuple:
+    """Return (pad_left, pad_right) such that out = ceil(n / stride)."""
+    out = -(-n // stride)                      # ceil division
+    total = max(0, (out - 1) * stride + kernel - n)
+    left = total // 2
+    right = total - left
+    return left, right
 
-def resnet_block(
-        layer,
-        num_filters,
-        subsample_length,
-        block_index,
-        **params):
-    from keras.layers import Add 
-    from keras.layers import MaxPooling1D
-    from keras.layers.core import Lambda
 
-    def zeropad(x):
-        y = K.zeros_like(x)
-        return K.concatenate([x, y], axis=2)
+class _SamePad1d(nn.Module):
+    """Asymmetric padding producing TensorFlow 'SAME' output length."""
 
-    def zeropad_output_shape(input_shape):
-        shape = list(input_shape)
-        assert len(shape) == 3
-        shape[2] *= 2
-        return tuple(shape)
+    def __init__(self, kernel: int, stride: int):
+        super().__init__()
+        self.kernel = kernel
+        self.stride = stride
 
-    shortcut = MaxPooling1D(pool_size=subsample_length)(layer)
-    zero_pad = (block_index % params["conv_increase_channels_at"]) == 0 \
-        and block_index > 0
-    if zero_pad is True:
-        shortcut = Lambda(zeropad, output_shape=zeropad_output_shape)(shortcut)
+    def forward(self, x):
+        n = x.shape[-1]
+        left, right = _same_padding(n, self.kernel, self.stride)
+        if left == 0 and right == 0:
+            return x
+        return nn.functional.pad(x, (left, right))
 
-    for i in range(params["conv_num_skip"]):
-        if not (block_index == 0 and i == 0):
-            layer = _bn_relu(
-                layer,
-                dropout=params["conv_dropout"] if i > 0 else 0,
-                **params)
-        layer = add_conv_weight(
-            layer,
-            params["conv_filter_length"],
-            num_filters,
-            subsample_length if i == 0 else 1,
-            **params)
-    layer = Add()([shortcut, layer])
-    return layer
 
-def get_num_filters_at_index(index, num_start_filters, **params):
-    return 2**int(index / params["conv_increase_channels_at"]) \
-        * num_start_filters
+# ----------------------------------------------------------------------------
+# Building blocks (ports of network.py)
+# ----------------------------------------------------------------------------
 
-def add_resnet_layers(layer, **params):
-    layer = add_conv_weight(
-        layer,
-        params["conv_filter_length"],
-        params["conv_num_filters_start"],
-        subsample_length=1,
-        **params)
-    layer = _bn_relu(layer, **params)
-    for index, subsample_length in enumerate(params["conv_subsample_lengths"]):
-        num_filters = get_num_filters_at_index(
-            index, params["conv_num_filters_start"], **params)
-        layer = resnet_block(
-            layer,
-            num_filters,
-            subsample_length,
-            index,
-            **params)
-    layer = _bn_relu(layer, **params)
-    return layer
+class _ConvSame1d(nn.Module):
+    """Conv1d with SAME padding + optional stride."""
 
-def add_output_layer(layer, **params):
-    from keras.layers.core import Dense, Activation
-    from keras.layers.wrappers import TimeDistributed
-    layer = TimeDistributed(Dense(params["num_categories"]))(layer)
-    return Activation('softmax')(layer)
+    def __init__(self, in_channels, out_channels, kernel, stride, seed=None):
+        super().__init__()
+        self.pad = _SamePad1d(kernel, stride)
+        self.conv = nn.Conv1d(
+            in_channels, out_channels, kernel_size=kernel, stride=stride,
+            padding=0, bias=False)
+        # Keras default kernel_initializer for Conv1D is 'glorot_uniform'.
+        # The config uses 'he_normal' (see config.json), so default to that,
+        # but keep glorot available to be maximally faithful to Keras defaults.
+        if seed is not None:
+            torch.manual_seed(seed)
+        nn.init.kaiming_normal_(
+            self.conv.weight, a=0, mode='fan_in', nonlinearity='relu')
 
-def add_compile(model, **params):
-    from keras.optimizers import Adam
-    optimizer = Adam(
-        lr=params["learning_rate"],
-        clipnorm=params.get("clipnorm", 1))
+    def forward(self, x):
+        return self.conv(self.pad(x))
 
-    model.compile(loss='categorical_crossentropy',
-                  optimizer=optimizer,
-                  metrics=['accuracy'])
+
+class _BNRelu(nn.Module):
+    """BatchNorm -> ReLU -> (optional) Dropout, port of _bn_relu()."""
+
+    def __init__(self, channels, dropout, seed=None):
+        super().__init__()
+        self.bn = nn.BatchNorm1d(channels)
+        self.act = nn.ReLU()
+        self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
+
+    def forward(self, x):
+        return self.dropout(self.act(self.bn(x)))
+
+
+class _ConvBlock(nn.Module):
+    """conv -> bn_relu, port of add_conv_weight + _bn_relu."""
+
+    def __init__(self, in_channels, out_channels, filter_length, subsample, dropout,
+                 seed=None):
+        super().__init__()
+        self.conv = _ConvSame1d(in_channels, out_channels, filter_length, subsample,
+                                seed=seed)
+        self.bnrelu = _BNRelu(out_channels, dropout, seed=seed)
+
+    def forward(self, x):
+        return self.bnrelu(self.conv(x))
+
+
+class _ResBlock(nn.Module):
+    """One residual block, port of resnet_block().
+
+    shortcut = MaxPool1D(subsample) of the input; zero-padded on the channel axis
+    whenever the number of filters doubles (block_index % 4 == 0 and block_index > 0).
+    """
+
+    def __init__(self, in_filters, out_filters, subsample, block_index,
+                 filter_length, num_skip, dropout, seed=0):
+        super().__init__()
+        self.subsample = subsample
+        self.zero_pad = (block_index % 4 == 0) and block_index > 0
+
+        # shortcut branch
+        self.pool = nn.MaxPool1d(kernel_size=subsample)  # stride == kernel
+
+        # residual branch: num_skip convs
+        layers = []
+        for i in range(num_skip):
+            # BN+ReLU is applied *before* every conv except the very first
+            # conv of block 0 (matches the original `if not (block==0 and i==0)`).
+            if not (block_index == 0 and i == 0):
+                layers.append(_BNRelu(in_filters, dropout if i > 0 else 0))
+            layers.append(
+                _ConvSame1d(in_filters, out_filters, filter_length,
+                            subsample if i == 0 else 1))
+            in_filters = out_filters
+        self.residual = nn.Sequential(*layers)
+        self.add = nn.Identity()  # (for clarity) element-wise add below
+
+    def forward(self, x):
+        # shortcut: maxpool with SAME padding
+        n = x.shape[-1]
+        pool_pad = _SamePad1d(self.subsample, self.subsample)
+        shortcut = pool_pad(x)
+        shortcut = self.pool(shortcut)
+        if self.zero_pad:
+            zeros = torch.zeros_like(shortcut)
+            shortcut = torch.cat([shortcut, zeros], dim=1)
+
+        residual = self.residual(x)
+        return shortcut + residual
+
+
+class _ResNet_Layers(nn.Module):
+    """Initial conv -> 16 residual blocks -> final BN+ReLU.
+    Port of add_resnet_layers()."""
+
+    def __init__(self, chunk_length, filter_length, num_filters_start, subsample_lengths,
+                 num_skip, dropout, seed=0):
+        super().__init__()
+        self.conv0 = _ConvBlock(1, num_filters_start, filter_length, 1, 0, seed=seed)
+        blocks = []
+        in_filters = num_filters_start
+        for index, subsample in enumerate(subsample_lengths):
+            out_filters = _num_filters_at(index, num_filters_start)
+            blocks.append(_ResBlock(in_filters, out_filters, subsample, index,
+                                    filter_length, num_skip, dropout, seed=seed + index))
+            in_filters = out_filters
+        self.blocks = nn.Sequential(*blocks)
+        self.final_bnrelu = _BNRelu(in_filters, 0)
+
+    def forward(self, x):
+        x = self.conv0(x)
+        x = self.blocks(x)
+        x = self.final_bnrelu(x)
+        return x
+
+
+def _num_filters_at(index, num_start_filters):
+    """Port of get_num_filters_at_index(): doubles every `increase_channels_at` (4)."""
+    return int(2 ** (index // 4)) * num_start_filters
+
+
+class _OutputLayer(nn.Module):
+    """TimeDistributed(Dense(num_categories)) + softmax, port of add_output_layer()."""
+
+    def __init__(self, in_features, num_categories):
+        super().__init__()
+        self.dense = nn.Linear(in_features, num_categories, bias=True)
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, x):
+        # x: (batch, channels, time) -> (batch, time, channels) -> dense
+        x = x.transpose(1, 2)
+        return self.softmax(self.dense(x))  # (batch, time, num_categories)
+
+
+class ECGNetwork(nn.Module):
+    """Full network. Mirrors build_network() in network.py.
+
+    Input  : (batch, 1, time)  float32
+    Output : (batch, time // 2^8, num_categories) probabilities (softmax)
+    """
+
+    def __init__(self, conv_filter_length=16, conv_num_filters_start=32,
+                 conv_subsample_lengths=None, conv_num_skip=2, conv_dropout=0.2,
+                 num_categories=4, is_regular_conv=False, seed=0, **unused):
+        super().__init__()
+        if conv_subsample_lengths is None:
+            conv_subsample_lengths = [1, 2] * 8
+        self.conv_subsample_lengths = list(conv_subsample_lengths)
+        self.num_categories = num_categories
+        self.is_regular_conv = is_regular_conv
+
+        if self.is_regular_conv:
+            # Optional: plain stack of convs (conv_subsample_lengths provided).
+            subs = self.conv_subsample_lengths
+            self.convs = nn.Sequential()
+            in_f = 1
+            for subsample in subs:
+                self.convs.append(
+                    _ConvBlock(in_f, conv_num_filters_start, conv_filter_length,
+                               subsample, conv_dropout))
+                in_f = conv_num_filters_start
+        else:
+            self.resnet = _ResNet_Layers(
+                0, conv_filter_length, conv_num_filters_start,
+                self.conv_subsample_lengths, conv_num_skip, conv_dropout, seed=seed)
+
+        # number of channels at the final layer
+        if self.is_regular_conv:
+            final_channels = conv_num_filters_start
+        else:
+            final_channels = _num_filters_at(len(self.conv_subsample_lengths) - 1,
+                                             conv_num_filters_start)
+
+        self.final_reshape = nn.Identity()
+        self.output = _OutputLayer(final_channels, num_categories)
+
+    def forward(self, x):
+        if self.is_regular_conv:
+            h = self.convs(x)
+        else:
+            h = self.resnet(x)
+        probs = self.output(h)
+        return probs
+
+    def logits(self, x):
+        """Softmax-free output, for numerically stable training."""
+        if self.is_regular_conv:
+            h = self.convs(x)
+        else:
+            h = self.resnet(x)
+        h = h.transpose(1, 2)
+        return self.output.dense(h)
+
 
 def build_network(**params):
-    from keras.models import Model
-    from keras.layers import Input
-    inputs = Input(shape=params['input_shape'],
-                   dtype='float32',
-                   name='inputs')
-
-    if params.get('is_regular_conv', False):
-        layer = add_conv_layers(inputs, **params)
-    else:
-        layer = add_resnet_layers(inputs, **params)
-
-    output = add_output_layer(layer, **params)
-    model = Model(inputs=[inputs], outputs=[output])
-    if params.get("compile", True):
-        add_compile(model, **params)
-    return model
+    """Port of build_network(): returns an ECGNetwork (input_shape handled by caller)."""
+    return ECGNetwork(**params)

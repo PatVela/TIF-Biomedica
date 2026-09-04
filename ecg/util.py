@@ -1,13 +1,16 @@
-import os
-import cPickle as pickle
+"""PyTorch port of awni/ecg util.py (save/load of the preprocessor)."""
 
-def load(dirname):
-    preproc_f = os.path.join(dirname, "preproc.bin")
-    with open(preproc_f, 'r') as fid:
-        preproc = pickle.load(fid)
-    return preproc
+import os
+import pickle
+
 
 def save(preproc, dirname):
     preproc_f = os.path.join(dirname, "preproc.bin")
-    with open(preproc_f, 'w') as fid:
-        pickle.dump(preproc, fid)
+    with open(preproc_f, 'wb') as f:
+        pickle.dump(preproc, f)
+
+
+def load(dirname):
+    preproc_f = os.path.join(dirname, "preproc.bin")
+    with open(preproc_f, 'rb') as f:
+        return pickle.load(f)

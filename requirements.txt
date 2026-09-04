@@ -1,4 +1,18 @@
-h5py==2.8.0rc1
-Keras==2.1.6
-tqdm==4.23.4
-unittest2==1.1.0
+# Python 3.13.5 (cp313 wheels)
+# -------------------------------------------------------------
+# PyTorch build with CUDA 13.0 (RTX 3050 Laptop = Ampere, sm_86).
+# NOTE: pinned with the "+cu130" local-version tag so pip is FORCED to
+# pick the CUDA wheel from the PyTorch index instead of the CPU wheel
+# from PyPI (both satisfy "==2.14.0", and --extra-index-url would not
+# guarantee the GPU build on its own).
+# -------------------------------------------------------------
+--extra-index-url https://download.pytorch.org/whl/cu130
+
+torch==2.14.0+cu130
+numpy==2.5.2
+scipy==1.18.1
+tqdm==4.70.0
+
+# ---- Web app (Flask) ----
+flask>=3.1,<4
+matplotlib>=3.9

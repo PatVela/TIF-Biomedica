@@ -1,0 +1,68 @@
+:root {
+  --bg: #f4f6f9;
+  --card: #ffffff;
+  --ink: #1a1a2e;
+  --accent: #1f6feb;
+  --accent-h: #1857b8;
+  --muted: #5b6472;
+  --border: #e2e6ee;
+  --ok: #2ca02c;
+  --err: #d62728;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.5;
+}
+.topbar {
+  background: linear-gradient(135deg, #10203f, #1f3a6d);
+  color: #fff;
+  padding: 1.6rem 1.4rem 1.4rem;
+}
+.topbar h1 { margin: 0 0 .35rem; font-size: 1.5rem; }
+.topbar .subtitle { margin: 0; color: #cfd8ea; font-size: .92rem; max-width: 900px; }
+.container { max-width: 980px; margin: 1.4rem auto; padding: 0 1rem; display: grid; gap: 1.2rem; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.2rem 1.4rem;
+  box-shadow: 0 2px 10px rgba(16,32,63,.05);
+}
+.card h2 { margin: 0 0 .6rem; font-size: 1.08rem; }
+.hint { color: var(--muted); font-size: .9rem; margin: .3rem 0; }
+.hint code {
+  background: #eef2fa; border-radius: 5px; padding: .05rem .35rem;
+  font-family: Consolas, monospace; font-size: .85em;
+}
+form { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .8rem; align-items: center; }
+input[type=file] { font-size: .93rem; }
+button {
+  background: var(--accent); color: #fff; border: none; border-radius: 8px;
+  padding: .55rem 1.1rem; font-size: .95rem; cursor: pointer; transition: background .15s;
+}
+button:hover { background: var(--accent-h); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+.status { margin-top: .7rem; font-size: .92rem; min-height: 1.2em; }
+.status.ok { color: var(--ok); }
+.status.err { color: var(--err); }
+.status.loading { color: var(--accent); }
+.summary { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .8rem; }
+.chip {
+  border-radius: 999px; padding: .35rem .85rem; font-size: .88rem; color: #fff;
+  font-weight: 600;
+}
+.plot-wrap { text-align: center; }
+.plot { max-width: 100%; border: 1px solid var(--border); border-radius: 10px; }
+.intervals { margin-top: .9rem; }
+.intervals h3 { font-size: .95rem; color: var(--muted); }
+.iv { font-size: .82rem; color: var(--muted); }
+.model-table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+.model-table th { text-align: left; color: var(--muted); width: 180px; padding: .3rem 0; }
+.model-table td { padding: .3rem 0; }
+@media (max-width: 640px) {
+  .container { grid-template-columns: 1fr; }
+}

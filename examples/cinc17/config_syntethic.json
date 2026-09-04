@@ -9,12 +9,11 @@
     "conv_increase_channels_at": 4,
 
     "learning_rate": 0.001,
-    "batch_size": 16,
+    "batch_size": 8,
 
-    "train": "examples/cinc17/train.json",
-    "dev": "examples/cinc17/dev.json",
+    "train": "examples/cinc17/synthetic/train.json",
+    "dev": "examples/cinc17/synthetic/dev.json",
 
     "generator": true,
-
-    "save_dir": "saved"
+    "save_dir": "saved_synthetic"
 }
