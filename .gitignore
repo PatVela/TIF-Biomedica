@@ -1,0 +1,113 @@
+# ==========================================
+# 1. ARCHIVOS Y CARPETAS ESPECÍFICAS DEL PROYECTO
+# ==========================================
+# Datasets y conjuntos de entrenamiento
+dataset/
+dataset2020/
+dataset2020_procesado/
+dataset2020_prueba/
+training2017/
+training2017.zip
+
+# Resultados, logs y salidas
+resultados/
+logs/
+modelos/
+/data
+/cache
+/saved
+/plots
+
+# ==========================================
+# 2. FORMATOS DE DATOS Y MODELOS (ECG / ML)
+# ==========================================
+# Archivos de señal e imágenes (WFDB, PhysioNet, Matlab, etc.)
+*.mat
+*.hea
+*.atr
+*.dat
+*.eps
+
+# Modelos guardados y comprimidos
+*.keras
+*.h5
+*.zip
+
+# ==========================================
+# 3. ENTORNOS VIRTUALES Y CONFIGURACIÓN DE IDEs
+# ==========================================
+.vscode/
+ECG-env/
+env/
+venv/
+ENV/
+.python-version
+.env
+.spyderproject
+.ropeproject
+
+# ==========================================
+# 4. PYTHON Y COMPILADOS (Estándar)
+# ==========================================
+# Byte-compiled / archivos de caché
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribución / Empaquetado
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# ==========================================
+# 5. PRUEBAS, COBERURA Y LOGS
+# ==========================================
+pip-log.txt
+pip-delete-this-directory.txt
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*,cover
+.hypothesis/
+*.log
+
+# ==========================================
+# 6. HERRAMIENTAS, MARCOS Y EDITOR
+# ==========================================
+# Jupyter / IPython
+.ipynb_checkpoints
+
+# Django / Flask / Scrapy / Sphinx
+local_settings.py
+instance/
+.webassets-cache
+.scrapy
+docs/_build/
+target/
+
+# Celery, Vim, Traducciones
+celerybeat-schedule
+*.swp
+*.mo
+*.pot
