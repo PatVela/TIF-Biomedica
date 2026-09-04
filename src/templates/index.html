@@ -1,99 +1,401 @@
-{% extends "base.html" %} 
+{% extends "base.html" %}
 
 {% block content %}
-<!-- Jumbotron: Sección de bienvenida y descripción de la aplicación -->
+
+<!-- ========================================================= -->
+<!-- JUMBOTRON -->
+<!-- ========================================================= -->
+
 <div class="jumbotron bg-light text-center" id="mainJumbotron">
-    <h1 class="display-4">Clasificador de Latidos ECG</h1>
-    <p class="lead">Cargue un archivo de datos de ECG en formato <strong>.csv</strong> (menor a 100 MB) para analizar y clasificar los tipos de latidos cardíacos.</p>
+
+    <h1 class="display-4">
+        Clasificador de ECG
+    </h1>
+
+    <p class="lead">
+        Cargue un registro de ECG de
+        <strong>12 derivaciones</strong>
+        para analizarlo mediante el modelo de aprendizaje profundo
+        entrenado con el
+        <strong>PhysioNet/CinC Challenge 2020</strong>.
+    </p>
+
+    <p class="mb-0">
+        El sistema analiza un registro de
+        <strong>10 segundos a 500 Hz</strong>
+        y genera predicciones multilabel para
+        <strong>27 clases diagnósticas</strong>.
+    </p>
+
 </div>
 
-<!-- Contenido principal de la aplicación: leyenda de códigos y formularios de carga -->
+
+<!-- ========================================================= -->
+<!-- CONTENIDO PRINCIPAL -->
+<!-- ========================================================= -->
+
 <div class="row" id="mainContentRow">
-    <!-- Columna izquierda: Leyenda de códigos de clasificación y Datos del Paciente -->
+
+
+    <!-- ===================================================== -->
+    <!-- COLUMNA IZQUIERDA -->
+    <!-- ===================================================== -->
+
     <div class="col-md-4">
+
+        <!-- Información del análisis -->
+
         <div class="card">
+
             <div class="card-header">
-                <strong>Leyenda de Códigos</strong>
+                <strong>Configuración del análisis</strong>
             </div>
+
             <div class="card-body">
+
                 <table class="table table-sm table-borderless">
+
                     <tbody>
-                        <tr><td><strong>N:</strong></td><td>Latido normal</td></tr>
-                        <tr><td><strong>A:</strong></td><td>Latido auricular prematuro</td></tr>
-                        <tr><td><strong>V:</strong></td><td>Contracción ventricular prematura</td></tr>
-                        <tr><td><strong>F:</strong></td><td>Fusión de latido ventricular y normal</td></tr>
-                        <tr><td><strong>Paced:</strong></td><td>Latido a ritmo (marcapasos)</td></tr>
-                        <tr><td><strong>Noise:</strong></td><td>Ruido (sin latido)</td></tr>
+
+                        <tr>
+                            <td>
+                                <strong>Dataset:</strong>
+                            </td>
+
+                            <td>
+                                PhysioNet/CinC 2020
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <strong>Derivaciones:</strong>
+                            </td>
+
+                            <td>
+                                12
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <strong>Frecuencia:</strong>
+                            </td>
+
+                            <td>
+                                500 Hz
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <strong>Duración:</strong>
+                            </td>
+
+                            <td>
+                                10 s
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <strong>Muestras:</strong>
+                            </td>
+
+                            <td>
+                                5000
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <strong>Clases:</strong>
+                            </td>
+
+                            <td>
+                                27
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <strong>Tipo:</strong>
+                            </td>
+
+                            <td>
+                                Multilabel
+                            </td>
+                        </tr>
+
                     </tbody>
+
                 </table>
+
             </div>
+
         </div>
 
-        <!-- Nuevo botón colapsable para Datos del Paciente -->
+
+        <!-- ================================================= -->
+        <!-- DATOS DEL PACIENTE -->
+        <!-- ================================================= -->
+
         <div id="patientDataSection" style="display:none;">
-            <button class="collapsible btn btn-info btn-block mt-4" id="patientDataCollapsible">Datos del Paciente</button>
+
+            <button
+                class="collapsible btn btn-info btn-block mt-4"
+                id="patientDataCollapsible">
+
+                Datos del Paciente
+
+            </button>
+
+
             <div class="content" id="patientDataContent">
-                <div class="card mt-0"> {# mt-0 para que se pegue al botón colapsable #}
+
+                <div class="card mt-0">
+
                     <div class="card-body">
+
                         <p id="patientNameResult"></p>
+
                         <p id="patientAgeResult"></p>
+
                         <p id="patientSexResult"></p>
+
                     </div>
+
                 </div>
+
             </div>
+
         </div>
+
+
     </div>
 
-    <!-- Columna derecha: Formularios de carga y área de resultados -->
+
+    <!-- ===================================================== -->
+    <!-- COLUMNA DERECHA -->
+    <!-- ===================================================== -->
+
     <div class="col-md-8">
+
+
+        <!-- ================================================= -->
+        <!-- CARGA DE ARCHIVO CSV -->
+        <!-- ================================================= -->
+
         <div class="card">
+
             <div class="card-body">
-                <!-- Formulario para cargar archivos CSV para predicción directa -->
-                <form id="upload-file" method="post" enctype="multipart/form-data">
+
+                <h5 class="card-title">
+                    Analizar ECG
+                </h5>
+
+                <p class="card-text">
+
+                    Seleccione un archivo
+                    <strong>CSV</strong>
+                    que contenga las derivaciones del ECG.
+
+                </p>
+
+
+                <form
+                    id="upload-file"
+                    method="post"
+                    enctype="multipart/form-data">
+
                     <div class="custom-file">
-                        <input type="file" class="custom-file-input" name="file" id="imageUpload" accept=".csv">
-                        <label class="custom-file-label" for="imageUpload">Seleccionar archivo CSV...</label>
+
+                        <input
+                            type="file"
+                            class="custom-file-input"
+                            name="file"
+                            id="imageUpload"
+                            accept=".csv">
+
+                        <label
+                            class="custom-file-label"
+                            for="imageUpload">
+
+                            Seleccionar archivo CSV...
+
+                        </label>
+
                     </div>
+
                 </form>
 
-                <!-- Nueva sección para subir y formatear archivos de ECG WFDB (.mat, .hea, .dat) -->
-                <form id="upload-ecg-for-format" method="post" enctype="multipart/form-data" class="mt-4">
-                    <div class="custom-file">
-                        <!-- Input de archivo para múltiples extensiones WFDB -->
-                        <input type="file" class="custom-file-input" name="ecg_file_to_format" id="ecgFileToFormat" accept=".mat,.hea,.dat" multiple>
-                        <label class="custom-file-label" for="ecgFileToFormat">Seleccionar archivos ECG para formatear (.mat, .hea, .dat)...</label>
-                    </div>
-                    <div class="text-center mt-3 d-flex justify-content-center flex-wrap">
-                        <!-- Botón para iniciar el formateo a CSV -->
-                        <button type="button" class="btn btn-primary btn-lg mx-2" id="btn-format-ecg">Formatear ECG a CSV</button>
-                        <!-- Nuevo botón para formatear ECG a CSV Completo -->
-                        <button type="button" class="btn btn-secondary btn-lg mx-2" id="btn-format-ecg-full">Formatear ECG a CSV Completo</button>
-                    </div>
-                </form>
 
-                <!-- Sección para los botones de acción y la barra de progreso -->
-                <div class="text-center mt-4">
-                    <!-- Sección del botón de predicción (inicialmente oculta) -->
-                    <div class="image-section" style="display:none;">
-                        <button type="button" class="btn btn-success btn-lg" id="btn-predict">¡Predecir Ahora!</button>
-                    </div>
+                <div class="small text-muted mt-2">
 
-                    <!-- Barra de Progreso (inicialmente oculta) -->
-                    <div class="progress-section" style="display:none;">
-                        <div class="progress-bar-container">
-                            <div class="progress-bar-fill" style="width: 0%;"></div>
-                        </div>
-                        <div class="progress-text">0%</div>
-                    </div>
+                    El archivo debe contener las señales ECG de las
+                    derivaciones disponibles. Para el modelo se utilizan
+                    las 12 derivaciones estándar.
+
                 </div>
+
+
+                <!-- Botón de predicción -->
+
+                <div class="text-center mt-4">
+
+                    <div
+                        class="image-section"
+                        style="display:none;">
+
+                        <button
+                            type="button"
+                            class="btn btn-success btn-lg"
+                            id="btn-predict">
+
+                            ¡Predecir Ahora!
+
+                        </button>
+
+                    </div>
+
+
+                    <!-- Barra de progreso -->
+
+                    <div
+                        class="progress-section"
+                        style="display:none;">
+
+                        <div class="progress-bar-container">
+
+                            <div
+                                class="progress-bar-fill"
+                                style="width: 0%;">
+
+                            </div>
+
+                        </div>
+
+                        <div class="progress-text">
+                            0%
+                        </div>
+
+                    </div>
+
+                </div>
+
             </div>
+
         </div>
 
-        <!-- Área donde se mostrarán los resultados de la predicción (tablas y gráficos) -->
-        <div id="result" class="mt-4">
-            <!-- Los resultados se insertarán aquí dinámicamente por JavaScript -->
-            <!-- Incluirá botones colapsables para "Análisis por Segmento", "Media de la Predicción" y "Resumen General" -->
+
+        <!-- ================================================= -->
+        <!-- CONVERSIÓN WFDB -->
+        <!-- ================================================= -->
+
+        <div class="card mt-4">
+
+            <div class="card-body">
+
+                <h5 class="card-title">
+                    Convertir registro ECG
+                </h5>
+
+                <p class="card-text">
+
+                    Si dispone de un registro en formato
+                    <strong>WFDB</strong>,
+                    puede convertirlo a CSV antes de realizar
+                    la predicción.
+
+                </p>
+
+
+                <form
+                    id="upload-ecg-for-format"
+                    method="post"
+                    enctype="multipart/form-data">
+
+                    <div class="custom-file">
+
+                        <input
+                            type="file"
+                            class="custom-file-input"
+                            name="ecg_file_to_format"
+                            id="ecgFileToFormat"
+                            accept=".mat,.hea,.dat"
+                            multiple>
+
+                        <label
+                            class="custom-file-label"
+                            for="ecgFileToFormat">
+
+                            Seleccionar archivos WFDB
+                            (.mat, .hea, .dat)...
+
+                        </label>
+
+                    </div>
+
+
+                    <div class="text-center mt-3">
+
+                        <button
+                            type="button"
+                            class="btn btn-primary btn-lg mx-2"
+                            id="btn-format-ecg-full">
+
+                            Formatear ECG a CSV
+
+                        </button>
+
+                    </div>
+
+                </form>
+
+
+                <div class="small text-muted mt-3">
+
+                    <strong>Importante:</strong>
+                    para el modelo de 12 derivaciones se conserva la
+                    información multiderivación del registro original.
+                    No se realiza conversión a una única derivación.
+
+                </div>
+
+            </div>
+
         </div>
+
+
+        <!-- ================================================= -->
+        <!-- RESULTADOS -->
+        <!-- ================================================= -->
+
+        <div
+            id="result"
+            class="mt-4">
+
+            <!--
+
+                Los resultados serán insertados dinámicamente
+                mediante JavaScript.
+
+                El resultado esperado para CINC2020 incluye:
+
+                - Probabilidades de las 27 clases
+                - Clases predichas
+                - Código SNOMED-CT
+                - Probabilidad de cada clase
+                - Resumen general
+                - Gráfico del ECG de 12 derivaciones
+
+            -->
+
+        </div>
+
+
     </div>
+
 </div>
+
 {% endblock %}

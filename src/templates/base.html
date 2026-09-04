@@ -5,437 +5,926 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
     <title>Clasificador de ECG</title>
 
-    <!-- Enlace a Bootstrap CSS para estilos de componentes UI -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet"
+          href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 
-    <!-- Enlace a tu archivo CSS personalizado (main.css) -->
-    <!-- Asegúrate de que este archivo exista en la carpeta 'static/css/' de tu aplicación Flask -->
+    <!-- CSS personalizado -->
     <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
 
-    <!-- Enlace a Google Fonts para la fuente Inter, para una tipografía moderna y legible -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+          rel="stylesheet">
 
     <style>
-        /* Estilos globales para el cuerpo de la página */
+
         body {
-            font-family: 'Inter', sans-serif; /* Fuente principal */
-            background-color: #2c3e50; /* Un azul oscuro agradable para el fondo */
-            color: #ecf0f1; /* Texto claro para contraste */
-        }
-        /* Estilos para la barra de navegación (Navbar) */
-        .navbar {
-            background-color: #34495e !important; /* Azul oscuro más oscuro para la barra de navegación */
-            border-bottom: 1px solid #2c3e50; /* Borde inferior sutil */
-        }
-        .navbar-brand {
-            color: #ecf0f1 !important; /* Color del texto de la marca */
-            font-weight: 600; /* Negrita semi-bold */
-        }
-        .navbar-nav .nav-link {
-            color: #bdc3c7 !important; /* Color de los enlaces de navegación */
-        }
-        .navbar-nav .nav-link:hover {
-            color: #ecf0f1 !important; /* Cambio de color al pasar el ratón */
-        }
-        /* Estilos para el Jumbotron (sección de bienvenida) */
-        .jumbotron {
-            background-color: #34495e; /* Un azul oscuro para el jumbotron */
-            color: #ecf0f1; /* Texto claro */
-            padding: 3rem 2rem; /* Relleno */
-            border-radius: 0.75rem; /* Esquinas redondeadas */
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Sombra para profundidad */
-        }
-        .jumbotron .display-4 {
-            color: #67e8f9; /* Cian brillante para el título principal */
-            font-weight: 700; /* Negrita */
-        }
-        /* Estilos para las tarjetas (contenedores de contenido) */
-        .card {
-            background-color: #2d3748; /* Fondo de tarjeta más oscuro */
-            color: #e2e8f0; /* Texto claro */
-            border: none; /* Sin borde */
-            border-radius: 0.75rem; /* Esquinas redondeadas */
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Sombra */
-        }
-        .card-header {
-            background-color: #2c3e50; /* Fondo de encabezado de tarjeta */
-            color: #cbd5e0; /* Color de texto del encabezado */
-            font-weight: 600; /* Negrita semi-bold */
-            border-bottom: 1px solid #34495e; /* Borde inferior */
-        }
-        /* Estilos para el pie de página */
-        footer {
-            background-color: #34495e; /* Fondo oscuro */
-            color: #ecf0f1; /* Texto claro */
-            font-size: 0.9rem; /* Tamaño de fuente más pequeño */
-            border-top: 1px solid #2c3e50; /* Borde superior */
-        }
-        /* Ajuste para el easter egg del footer: solo el texto clickeable */
-        #footerDate {
-            display: inline-block; /* Para que ocupe solo el ancho de su contenido */
-            cursor: pointer; /* Cursor de puntero para indicar interactividad */
-            color: inherit; /* Hereda el color del padre */
-            text-decoration: none; /* Sin subrayado por defecto */
-        }
-        #footerDate:hover {
-            color: #67e8f9; /* Cambio de color al pasar el ratón */
-            text-decoration: underline; /* Subrayado al pasar el ratón */
+            font-family: 'Inter', sans-serif;
+            background-color: #2c3e50;
+            color: #ecf0f1;
         }
 
-        /* Estilo para el loader (círculo giratorio) - si aún se usa en alguna parte */
+        .navbar {
+            background-color: #34495e !important;
+            border-bottom: 1px solid #2c3e50;
+        }
+
+        .navbar-brand {
+            color: #ecf0f1 !important;
+            font-weight: 600;
+        }
+
+        .navbar-nav .nav-link {
+            color: #bdc3c7 !important;
+        }
+
+        .navbar-nav .nav-link:hover {
+            color: #ecf0f1 !important;
+        }
+
+        .jumbotron {
+            background-color: #34495e;
+            color: #ecf0f1;
+            padding: 3rem 2rem;
+            border-radius: 0.75rem;
+            box-shadow:
+                0 10px 15px -3px rgba(0, 0, 0, 0.1),
+                0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .jumbotron .display-4 {
+            color: #67e8f9;
+            font-weight: 700;
+        }
+
+        .card {
+            background-color: #2d3748;
+            color: #e2e8f0;
+            border: none;
+            border-radius: 0.75rem;
+            box-shadow:
+                0 4px 6px -1px rgba(0, 0, 0, 0.1),
+                0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .card-header {
+            background-color: #2c3e50;
+            color: #cbd5e0;
+            font-weight: 600;
+            border-bottom: 1px solid #34495e;
+        }
+
+        footer {
+            background-color: #34495e;
+            color: #ecf0f1;
+            font-size: 0.9rem;
+            border-top: 1px solid #2c3e50;
+        }
+
+        #footerDate {
+            display: inline-block;
+            cursor: pointer;
+            color: inherit;
+            text-decoration: none;
+        }
+
+        #footerDate:hover {
+            color: #67e8f9;
+            text-decoration: underline;
+        }
+
         .loader {
-            border: 4px solid #f3f3f3; /* Borde del loader */
-            border-top: 4px solid #3498db; /* Color de la parte superior del borde para el efecto de giro */
-            border-radius: 50%; /* Forma circular */
-            width: 40px; /* Ancho */
-            height: 40px; /* Alto */
-            animation: spin 2s linear infinite; /* Animación de giro */
-            margin: 20px auto; /* Centrado horizontal */
-            display: none; /* Oculto por defecto */
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+            margin: 20px auto;
+            display: none;
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); } /* Inicio de la rotación */
-            100% { transform: rotate(360deg); } /* Fin de la rotación (una vuelta completa) */
-        }
-        /* Asegúrate de que las imágenes SVG/generadas se vean bien */
-        img.segment-image {
-            max-width: 100%; /* Ancho máximo al 100% del contenedor */
-            height: auto; /* Altura automática para mantener la proporción */
-            display: block; /* Para que ocupe su propia línea */
-            margin: 0 auto; /* Centrado horizontal */
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
-        /* Estilos para los modales de Bootstrap */
+        img.segment-image {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
         .modal-content {
-            background-color: #2d3748; /* Fondo oscuro para el contenido del modal */
-            color: #e2e8f0; /* Texto claro */
+            background-color: #2d3748;
+            color: #e2e8f0;
         }
+
         .modal-header {
-            background-color: #34495e; /* Fondo más oscuro para el encabezado del modal */
-            border-bottom: 1px solid #2c3e50; /* Borde inferior */
+            background-color: #34495e;
+            border-bottom: 1px solid #2c3e50;
         }
+
         .modal-title {
-            color: #ecf0f1; /* Color del título del modal */
+            color: #ecf0f1;
         }
+
         .close {
-            color: #ecf0f1; /* Color del botón de cerrar */
-            opacity: 1; /* Opacidad completa */
+            color: #ecf0f1;
+            opacity: 1;
         }
+
         .close:hover {
-            color: #67e8f9; /* Cambio de color al pasar el ratón */
+            color: #67e8f9;
         }
+
         .modal-body {
-            background-color: #2d3748; /* Fondo oscuro para el cuerpo del modal */
+            background-color: #2d3748;
         }
+
         .modal-body p,
         .modal-body ol,
         .modal-body li,
         .modal-body ul {
-            color: #e2e8f0; /* Asegura que el texto sea claro */
-        }
-        .modal-footer {
-            background-color: #34495e; /* Fondo más oscuro para el pie del modal */
-            border-top: 1px solid #2c3e50; /* Borde superior */
-        }
-        /* Estilo para el texto "Desarrollado por" para el nuevo easter egg */
-        #devInfo {
-            display: inline-block; /* Para que ocupe solo el ancho de su contenido */
-            cursor: pointer; /* Cursor de puntero */
-            color: #bdc3c7; /* Color similar al texto deshabilitado */
-            text-decoration: none; /* Sin subrayado por defecto */
-        }
-        #devInfo:hover {
-            color: #67e8f9; /* Cambio de color al pasar el ratón */
-            text-decoration: underline; /* Subrayado al pasar el ratón */
+            color: #e2e8f0;
         }
 
-        /* Estilos para el iframe del video de YouTube en el modal */
+        .modal-footer {
+            background-color: #34495e;
+            border-top: 1px solid #2c3e50;
+        }
+
+        #devInfo {
+            display: inline-block;
+            cursor: pointer;
+            color: #bdc3c7;
+            text-decoration: none;
+        }
+
+        #devInfo:hover {
+            color: #67e8f9;
+            text-decoration: underline;
+        }
+
         .video-container {
-            position: relative; /* Posición relativa para el posicionamiento absoluto del iframe */
-            padding-bottom: 56.25%; /* Relación de aspecto 16:9 (altura / ancho = 9 / 16 = 0.5625) */
-            height: 0; /* Altura inicial cero */
-            overflow: hidden; /* Oculta el contenido que se desborda */
-            max-width: 100%; /* Ancho máximo al 100% */
-            background: #000; /* Fondo negro */
-            border-radius: 0.5rem; /* Esquinas redondeadas */
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            overflow: hidden;
+            max-width: 100%;
+            background: #000;
+            border-radius: 0.5rem;
         }
 
         .video-container iframe {
-            position: absolute; /* Posicionamiento absoluto dentro del contenedor */
-            top: 0; /* Arriba */
-            left: 0; /* Izquierda */
-            width: 100%; /* Ancho completo */
-            height: 100%; /* Alto completo */
-            border: 0; /* Sin borde */
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
         }
 
-        /* Estilos específicos para botones colapsables en el modal */
         .modal-body .btn-collapse {
             width: 100%;
             text-align: left;
-            background-color: #4a5066; /* Un color ligeramente más claro que el modal body */
+            background-color: #4a5066;
             color: #e0e0e0;
             border: none;
-            border-radius: 0.375rem; /* Pequeño redondeo */
+            border-radius: 0.375rem;
             padding: 0.75rem 1rem;
-            margin-bottom: 0.5rem; /* Espacio entre botones */
+            margin-bottom: 0.5rem;
             font-weight: 600;
             transition: background-color 0.3s ease;
-            display: flex; /* Para alinear el texto y el icono */
+            display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
         .modal-body .btn-collapse:hover {
-            background-color: #5d6682; /* Color de hover */
+            background-color: #5d6682;
         }
 
         .modal-body .btn-collapse::after {
-            content: '+'; /* Icono de más por defecto */
+            content: '+';
             font-weight: bold;
             transition: transform 0.3s ease;
         }
 
         .modal-body .btn-collapse.collapsed::after {
-            content: '+'; /* Asegura que sea '+' cuando está colapsado */
+            content: '+';
             transform: rotate(0deg);
         }
 
         .modal-body .btn-collapse:not(.collapsed)::after {
-            content: '−'; /* Icono de menos cuando está abierto */
-            transform: rotate(0deg); /* No rotar el signo menos */
+            content: '−';
+            transform: rotate(0deg);
         }
 
         .modal-body .collapse-content {
             padding: 0.5rem 1rem;
-            background-color: #2d3748; /* Fondo que coincida con el modal body */
+            background-color: #2d3748;
             border-bottom-left-radius: 0.375rem;
             border-bottom-right-radius: 0.375rem;
-            margin-top: -0.5rem; /* Ajustar para que se vea pegado al botón */
-            margin-bottom: 0.5rem; /* Espacio debajo del contenido */
+            margin-top: -0.5rem;
+            margin-bottom: 0.5rem;
         }
 
         .modal-body .collapse-content ul,
         .modal-body .collapse-content p {
-            margin-bottom: 0.5rem; /* Espacio entre elementos dentro del colapsable */
-        }
-        .modal-body .collapse-content ul:last-child,
-        .modal-body .collapse-content p:last-child {
-            margin-bottom: 0; /* Eliminar margen inferior del último elemento */
+            margin-bottom: 0.5rem;
         }
 
+        .modal-body .collapse-content ul:last-child,
+        .modal-body .collapse-content p:last-child {
+            margin-bottom: 0;
+        }
 
     </style>
 </head>
 
+
 <body>
-    <!-- Barra de navegación superior -->
+
+    <!-- ========================================================= -->
+    <!-- BARRA DE NAVEGACIÓN -->
+    <!-- ========================================================= -->
+
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <a class="navbar-brand" href="#">Clasificador ECG</a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+
+        <a class="navbar-brand" href="#">
+            Clasificador ECG
+        </a>
+
+        <button class="navbar-toggler"
+                type="button"
+                data-toggle="collapse"
+                data-target="#navbarNav"
+                aria-controls="navbarNav"
+                aria-expanded="false"
+                aria-label="Toggle navigation">
+
             <span class="navbar-toggler-icon"></span>
+
         </button>
+
         <div class="collapse navbar-collapse" id="navbarNav">
+
             <ul class="navbar-nav ml-auto">
+
                 <li class="nav-item active">
-                    <a class="nav-link" href="#">Inicio <span class="sr-only">(current)</span></a>
+                    <a class="nav-link" href="#">
+                        Inicio
+                        <span class="sr-only">(current)</span>
+                    </a>
                 </li>
+
                 <li class="nav-item">
-                    <a class="nav-link" href="#" data-toggle="modal" data-target="#instructionsModal">Instrucciones</a>
+                    <a class="nav-link"
+                       href="#"
+                       data-toggle="modal"
+                       data-target="#instructionsModal">
+                        Instrucciones
+                    </a>
                 </li>
+
                 <li class="nav-item">
-                    <a class="nav-link" href="#" data-toggle="modal" data-target="#modelInfoModal">Información del Modelo</a>
+                    <a class="nav-link"
+                       href="#"
+                       data-toggle="modal"
+                       data-target="#modelInfoModal">
+                        Información del Modelo
+                    </a>
                 </li>
+
             </ul>
+
         </div>
+
     </nav>
 
-    <!-- Contenedor principal para el contenido de cada página -->
+
+    <!-- ========================================================= -->
+    <!-- CONTENIDO PRINCIPAL -->
+    <!-- ========================================================= -->
+
     <div class="container mt-4">
-        {% block content %}{% endblock %} <!-- Este bloque es donde se insertará el contenido específico de cada página (ej. index.html) -->
+
+        {% block content %}
+        {% endblock %}
+
     </div>
 
-    <!-- Modal de Instrucciones -->
-    <div class="modal fade" id="instructionsModal" tabindex="-1" role="dialog" aria-labelledby="instructionsModalLabel" aria-hidden="true">
-      <div class="modal-dialog" role="document">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="instructionsModalLabel">Instrucciones de Uso</h5>
-            <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
-              <span aria-hidden="true">&times;</span>
-            </button>
-          </div>
-          <div class="modal-body">
-            <p>Siga estos pasos para utilizar el clasificador de ECG:</p>
-            <ol>
-              <li>Seleccione un archivo de datos de ECG en formato <strong>.csv</strong>. Asegúrese de que el archivo no exceda los 100 MB.</li>
-              <li>Haga clic en "Predecir Ahora!" para iniciar el análisis.</li>
-              <li>Los resultados se mostrarán en tablas detalladas.</li>
-              <li>En caso de no tener archivo .csv, use la segunda opción de carga y el botón "Formatear ECG a CSV para convertir archivos .mat y .hba (subirlos al mismo tiempo)".</li>
-            </ol>
-            <hr>
-            <!-- Nuevo Easter Egg: Click en esta parte para un meme aleatorio -->
-            <a href="#" id="devInfo" style="text-decoration: none;">
-                <p class="text-muted small">Desarrollado por JPDV y EMOG.</p>
-            </a>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Modal de Información del Modelo -->
-    <div class="modal fade" id="modelInfoModal" tabindex="-1" role="dialog" aria-labelledby="modelInfoModalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="modelInfoModalLabel">Información del Modelo</h5>
-            <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
-              <span aria-hidden="true">&times;</span>
-            </button>
-          </div>
-          <div class="modal-body">
+    <!-- ========================================================= -->
+    <!-- MODAL: INSTRUCCIONES -->
+    <!-- ========================================================= -->
 
-            <!-- Botón Colapsable para Arquitectura del Modelo -->
-            <button class="btn btn-collapse" type="button" data-toggle="collapse" data-target="#collapseArchitecture" aria-expanded="true" aria-controls="collapseArchitecture">
-              Arquitectura del Modelo
-            </button>
-            <div class="collapse collapse-content" id="collapseArchitecture">
-              <p>{{ model_info.architecture_type | safe }}</p> {# Aplicar safe #}
-              {# Se cambian las <li> individuales por párrafos para una mejor presentación de bloques de texto #}
-              {% for detail in model_info.architecture_details %}
-              <p>{{ detail | safe }}</p>
-              {% endfor %}
-              <ul>
-                <li><strong>Optimizador:</strong> {{ model_info.optimizer | safe }}</li> {# Aplicar safe #}
-                <li><strong>Función de Pérdida:</strong> {{ model_info.loss_function | safe }}</li> {# Aplicar safe #}
-                <li><strong>Métrica de Entrenamiento:</strong> {{ model_info.metrics_monitored | safe }}</li> {# Aplicar safe #}
-              </ul>
-            </div>
+    <div class="modal fade"
+         id="instructionsModal"
+         tabindex="-1"
+         role="dialog"
+         aria-labelledby="instructionsModalLabel"
+         aria-hidden="true">
 
-            <!-- Botón Colapsable para Dataset de Entrenamiento -->
-            <button class="btn btn-collapse" type="button" data-toggle="collapse" data-target="#collapseDataset" aria-expanded="false" aria-controls="collapseDataset">
-              Dataset de Entrenamiento
-            </button>
-            <div class="collapse collapse-content" id="collapseDataset">
-              <p>El modelo fue entrenado con el dataset <strong>{{ model_info.dataset_source }}</strong>.</p>
-              <ul>
-                  <li><strong>Registros totales:</strong> {{ model_info.dataset_total_records }}</li>
-                  <li><strong>Frecuencia de muestreo:</strong> {{ model_info.dataset_sampling_rate }}</li>
-                  <li><strong>Anotaciones totales:</strong> {{ model_info.dataset_annotations }}</li>
-                  <li><strong>Derivación usada:</strong> {{ model_info.dataset_lead }}</li>
-                  <li><strong>Balanceo del Dataset:</strong> {{ model_info.dataset_balancing }}</li>
-              </ul>
-            </div>
+        <div class="modal-dialog" role="document">
 
-            <!-- Botón Colapsable para Clases de Latidos Soportadas -->
-            <button class="btn btn-collapse" type="button" data-toggle="collapse" data-target="#collapseClasses" aria-expanded="false" aria-controls="collapseClasses">
-              Clases de Latidos Soportadas
-            </button>
-            <div class="collapse collapse-content" id="collapseClasses">
-              <ul>
-                  {% for class_item in model_info.model_classes %}
-                  <li><strong>{{ class_item.code }}:</strong> {{ class_item.description }}</li>
-                  {% endfor %}
-              </ul>
-            </div>
-
-            <!-- Botón Colapsable para Métricas de Rendimiento -->
-            <button class="btn btn-collapse" type="button" data-toggle="collapse" data-target="#collapseMetrics" aria-expanded="false" aria-controls="collapseMetrics">
-              Métricas de Rendimiento
-            </button>
-            <div class="collapse collapse-content" id="collapseMetrics">
-              <p>Las métricas aquí mostradas son representativas para este tipo de arquitectura y pueden variar debido al entrenamiento realizado y a cuantas epocas es sometido el entrenamiento con la base de datos. Para el modelo actual, tuvieron lugar 65 epocas de entrenamiento.</p>
-              <ul>
-                  <li><strong>Accuracy:</strong> {{ model_info.metrics_accuracy }}</li>
-                  <li><strong>F1-score (promedio ponderado):</strong> {{ model_info.metrics_f1_score }}</li>
-              </ul>
-              <h6><strong>Notas de Rendimiento</strong></h6>
-              <ul>
-                {% for note in model_info.performance_notes %}
-                <li>{{ note }}</li>
-                {% endfor %}
-              </ul>
-              <h6><strong>Matriz de Confusión Sin Normalizar</strong></h6>
-              <p>La siguiente es una imagen representativa de la matriz de confusión sin normalizada para este modelo.</p>
-              <img src="{{ url_for('static', filename='asset/confusion_matrix.png') }}" alt="Matriz de Confusión del Modelo" class="img-fluid rounded" style="border: 1px solid #34495e; display: block; margin: auto;">
-              <p class="small mt-1 text-center">Las filas representan la clase verdadera y las columnas la clase predicha.</p>
-            </div>
-
-            <!-- Botón Colapsable para Notas de Preprocesamiento -->
-            <button class="btn btn-collapse" type="button" data-toggle="collapse" data-target="#collapsePreprocessing" aria-expanded="false" aria-controls="collapsePreprocessing">
-              Notas de Preprocesamiento
-            </button>
-            <div class="collapse collapse-content" id="collapsePreprocessing">
-              <ul>
-                {% for note in model_info.preprocessing_notes %}
-                <li>{{ note }}</li>
-                {% endfor %}
-              </ul>
-            </div>
-
-            <!-- Botón Colapsable para Notas de Predicción -->
-            <button class="btn btn-collapse" type="button" data-toggle="collapse" data-target="#collapsePrediction" aria-expanded="false" aria-controls="collapsePrediction">
-              Notas de Predicción
-            </button>
-            <div class="collapse collapse-content" id="collapsePrediction">
-              <ul>
-                {% for note in model_info.prediction_notes %}
-                <li>{{ note }}</li>
-                {% endfor %}
-              </ul>
-            </div>
-
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- NUEVO MODAL PARA EL RICKROLL -->
-    <div class="modal fade" id="rickrollModal" tabindex="-1" role="dialog" aria-labelledby="rickrollModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="rickrollModalLabel">¡Never gonna give you upppp!</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="video-container">
-                        <iframe id="rickrollVideo" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- FIN NUEVO MODAL PARA EL RICKROLL -->
 
+                <div class="modal-header">
+
+                    <h5 class="modal-title" id="instructionsModalLabel">
+                        Instrucciones de Uso
+                    </h5>
+
+                    <button type="button"
+                            class="close"
+                            data-dismiss="modal"
+                            aria-label="Cerrar">
+
+                        <span aria-hidden="true">&times;</span>
+
+                    </button>
+
+                </div>
+
+
+                <div class="modal-body">
+
+                    <p>
+                        Siga estos pasos para utilizar el clasificador de ECG:
+                    </p>
+
+                    <ol>
+
+                        <li>
+                            Seleccione un archivo de ECG en formato
+                            <strong>.csv</strong>.
+                        </li>
+
+                        <li>
+                            El archivo debe contener las derivaciones del ECG
+                            necesarias para el análisis.
+                        </li>
+
+                        <li>
+                            Haga clic en
+                            <strong>"Predecir Ahora!"</strong>
+                            para iniciar el análisis.
+                        </li>
+
+                        <li>
+                            El sistema procesará un registro de
+                            <strong>10 segundos y 12 derivaciones</strong>.
+                        </li>
+
+                        <li>
+                            Los resultados mostrarán las probabilidades
+                            correspondientes a las diferentes clases
+                            diagnósticas.
+                        </li>
+
+                    </ol>
+
+                    <hr>
+
+                    <p>
+                        <strong>Formato WFDB:</strong>
+                    </p>
+
+                    <p>
+                        Si dispone de un registro WFDB
+                        (<code>.mat</code> y <code>.hea</code>),
+                        puede utilizar la opción de conversión disponible
+                        en la página principal para generar un archivo
+                        CSV multiderivación.
+                    </p>
+
+                    <hr>
+
+                    <!-- Easter egg -->
+
+                    <a href="#"
+                       id="devInfo"
+                       style="text-decoration: none;">
+
+                        <p class="text-muted small">
+                            Desarrollado por JPDV y EMOG.
+                        </p>
+
+                    </a>
+
+                </div>
+
+
+                <div class="modal-footer">
+
+                    <button type="button"
+                            class="btn btn-secondary"
+                            data-dismiss="modal">
+
+                        Cerrar
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ========================================================= -->
+    <!-- MODAL: INFORMACIÓN DEL MODELO -->
+    <!-- ========================================================= -->
+
+    <div class="modal fade"
+         id="modelInfoModal"
+         tabindex="-1"
+         role="dialog"
+         aria-labelledby="modelInfoModalLabel"
+         aria-hidden="true">
+
+        <div class="modal-dialog modal-lg" role="document">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+
+                    <h5 class="modal-title"
+                        id="modelInfoModalLabel">
+
+                        Información del Modelo
+
+                    </h5>
+
+                    <button type="button"
+                            class="close"
+                            data-dismiss="modal"
+                            aria-label="Cerrar">
+
+                        <span aria-hidden="true">&times;</span>
+
+                    </button>
+
+                </div>
+
+
+                <div class="modal-body">
+
+
+                    <!-- ================================================= -->
+                    <!-- ARQUITECTURA -->
+                    <!-- ================================================= -->
+
+                    <button class="btn btn-collapse"
+                            type="button"
+                            data-toggle="collapse"
+                            data-target="#collapseArchitecture"
+                            aria-expanded="true"
+                            aria-controls="collapseArchitecture">
+
+                        Arquitectura del Modelo
+
+                    </button>
+
+
+                    <div class="collapse show collapse-content"
+                         id="collapseArchitecture">
+
+                        <p>
+                            {{ model_info.architecture_type | safe }}
+                        </p>
+
+                        {% for detail in model_info.architecture_details %}
+
+                        <p>
+                            {{ detail | safe }}
+                        </p>
+
+                        {% endfor %}
+
+                        <ul>
+
+                            <li>
+                                <strong>Optimizador:</strong>
+                                {{ model_info.optimizer | safe }}
+                            </li>
+
+                            <li>
+                                <strong>Función de Pérdida:</strong>
+                                {{ model_info.loss_function | safe }}
+                            </li>
+
+                            <li>
+                                <strong>Métricas:</strong>
+                                {{ model_info.metrics_monitored | safe }}
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+
+                    <!-- ================================================= -->
+                    <!-- DATASET -->
+                    <!-- ================================================= -->
+
+                    <button class="btn btn-collapse"
+                            type="button"
+                            data-toggle="collapse"
+                            data-target="#collapseDataset"
+                            aria-expanded="false"
+                            aria-controls="collapseDataset">
+
+                        Dataset de Entrenamiento
+
+                    </button>
+
+
+                    <div class="collapse collapse-content"
+                         id="collapseDataset">
+
+                        <p>
+                            El modelo fue entrenado utilizando
+                            exclusivamente el
+                            <strong>
+                                PhysioNet/CinC Challenge 2020
+                            </strong>.
+                        </p>
+
+                        <ul>
+
+                            <li>
+                                <strong>Dataset:</strong>
+                                {{ model_info.dataset_source }}
+                            </li>
+
+                            <li>
+                                <strong>Frecuencia de muestreo:</strong>
+                                {{ model_info.dataset_sampling_rate }}
+                            </li>
+
+                            <li>
+                                <strong>Duración de entrada:</strong>
+                                10 segundos
+                            </li>
+
+                            <li>
+                                <strong>Número de derivaciones:</strong>
+                                12
+                            </li>
+
+                            <li>
+                                <strong>Clases diagnósticas:</strong>
+                                27
+                            </li>
+
+                            <li>
+                                <strong>Tipo de clasificación:</strong>
+                                Multilabel
+                            </li>
+
+                            <li>
+                                <strong>Codificación de etiquetas:</strong>
+                                SNOMED-CT
+                            </li>
+
+                            <li>
+                                <strong>Balanceo del dataset:</strong>
+                                {{ model_info.dataset_balancing }}
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+
+                    <!-- ================================================= -->
+                    <!-- CLASES -->
+                    <!-- ================================================= -->
+
+                    <button class="btn btn-collapse"
+                            type="button"
+                            data-toggle="collapse"
+                            data-target="#collapseClasses"
+                            aria-expanded="false"
+                            aria-controls="collapseClasses">
+
+                        Diagnósticos Soportados
+
+                    </button>
+
+
+                    <div class="collapse collapse-content"
+                         id="collapseClasses">
+
+                        <p>
+                            El modelo genera una predicción independiente
+                            para cada una de las 27 clases diagnósticas
+                            puntuadas del Challenge 2020.
+                        </p>
+
+                        <p>
+                            Las clases están representadas mediante
+                            códigos <strong>SNOMED-CT</strong>.
+                        </p>
+
+                        <ul>
+
+                            {% for class_item in model_info.model_classes %}
+
+                            <li>
+                                <strong>
+                                    {{ class_item.code }}:
+                                </strong>
+
+                                {{ class_item.description }}
+
+                            </li>
+
+                            {% endfor %}
+
+                        </ul>
+
+                    </div>
+
+
+                    <!-- ================================================= -->
+                    <!-- MÉTRICAS -->
+                    <!-- ================================================= -->
+
+                    <button class="btn btn-collapse"
+                            type="button"
+                            data-toggle="collapse"
+                            data-target="#collapseMetrics"
+                            aria-expanded="false"
+                            aria-controls="collapseMetrics">
+
+                        Métricas de Rendimiento
+
+                    </button>
+
+
+                    <div class="collapse collapse-content"
+                         id="collapseMetrics">
+
+                        <p>
+                            Debido a que el problema es de clasificación
+                            multilabel, cada diagnóstico se evalúa
+                            independientemente.
+                        </p>
+
+                        <ul>
+
+                            <li>
+                                <strong>F1-score macro:</strong>
+                                {{ model_info.metrics_f1_macro }}
+                            </li>
+
+                            <li>
+                                <strong>F1-score micro:</strong>
+                                {{ model_info.metrics_f1_micro }}
+                            </li>
+
+                            <li>
+                                <strong>AUROC:</strong>
+                                {{ model_info.metrics_auroc }}
+                            </li>
+
+                            <li>
+                                <strong>AUPRC:</strong>
+                                {{ model_info.metrics_auprc }}
+                            </li>
+
+                            <li>
+                                <strong>Sensibilidad:</strong>
+                                {{ model_info.metrics_sensitivity }}
+                            </li>
+
+                            <li>
+                                <strong>Especificidad:</strong>
+                                {{ model_info.metrics_specificity }}
+                            </li>
+
+                            <li>
+                                <strong>Precisión:</strong>
+                                {{ model_info.metrics_precision }}
+                            </li>
+
+                        </ul>
+
+
+                        <h6>
+                            <strong>Notas de Rendimiento</strong>
+                        </h6>
+
+                        <ul>
+
+                            {% for note in model_info.performance_notes %}
+
+                            <li>
+                                {{ note }}
+                            </li>
+
+                            {% endfor %}
+
+                        </ul>
+
+                    </div>
+
+
+                    <!-- ================================================= -->
+                    <!-- PREPROCESAMIENTO -->
+                    <!-- ================================================= -->
+
+                    <button class="btn btn-collapse"
+                            type="button"
+                            data-toggle="collapse"
+                            data-target="#collapsePreprocessing"
+                            aria-expanded="false"
+                            aria-controls="collapsePreprocessing">
+
+                        Notas de Preprocesamiento
+
+                    </button>
+
+
+                    <div class="collapse collapse-content"
+                         id="collapsePreprocessing">
+
+                        <ul>
+
+                            {% for note in model_info.preprocessing_notes %}
+
+                            <li>
+                                {{ note }}
+                            </li>
+
+                            {% endfor %}
+
+                        </ul>
+
+                    </div>
+
+
+                    <!-- ================================================= -->
+                    <!-- PREDICCIÓN -->
+                    <!-- ================================================= -->
+
+                    <button class="btn btn-collapse"
+                            type="button"
+                            data-toggle="collapse"
+                            data-target="#collapsePrediction"
+                            aria-expanded="false"
+                            aria-controls="collapsePrediction">
+
+                        Notas de Predicción
+
+                    </button>
+
+
+                    <div class="collapse collapse-content"
+                         id="collapsePrediction">
+
+                        <ul>
+
+                            {% for note in model_info.prediction_notes %}
+
+                            <li>
+                                {{ note }}
+                            </li>
+
+                            {% endfor %}
+
+                        </ul>
+
+                    </div>
+
+
+                </div>
+
+
+                <div class="modal-footer">
+
+                    <button type="button"
+                            class="btn btn-secondary"
+                            data-dismiss="modal">
+
+                        Cerrar
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ========================================================= -->
+    <!-- MODAL RICKROLL -->
+    <!-- ========================================================= -->
+
+    <div class="modal fade"
+         id="rickrollModal"
+         tabindex="-1"
+         role="dialog"
+         aria-labelledby="rickrollModalLabel"
+         aria-hidden="true">
+
+        <div class="modal-dialog modal-lg" role="document">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+
+                    <h5 class="modal-title"
+                        id="rickrollModalLabel">
+
+                        ¡Never gonna give you upppp!
+
+                    </h5>
+
+                    <button type="button"
+                            class="close"
+                            data-dismiss="modal"
+                            aria-label="Cerrar">
+
+                        <span aria-hidden="true">&times;</span>
+
+                    </button>
+
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="video-container">
+
+                        <iframe id="rickrollVideo"
+                                src=""
+                                frameborder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen>
+                        </iframe>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ========================================================= -->
+    <!-- FOOTER -->
+    <!-- ========================================================= -->
 
     <footer class="text-center mt-4 py-3">
+
         <div class="container">
-            <!-- EASTER EGG: Click en la fecha para rickroll -->
+
             <a href="#" id="footerDate">
-                <span class="text-muted">TIF Biomédicas &copy; 2025</span>
+
+                <span class="text-muted">
+                    TIF Biomédicas &copy; 2026
+                </span>
+
             </a>
+
         </div>
+
     </footer>
 
-    <!-- Scripts de Bootstrap JS, jQuery y Popper.js -->
+
+    <!-- ========================================================= -->
+    <!-- JAVASCRIPT -->
+    <!-- ========================================================= -->
+
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
-    <!-- Enlace a tu archivo JavaScript principal (main.js) -->
-    <!-- Asegúrate de que este archivo exista en la carpeta 'static/js/' de tu aplicación Flask -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
 </body>
+
 </html>

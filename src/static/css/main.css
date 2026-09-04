@@ -1,33 +1,49 @@
-/* General Body and Container Styles */
+/* =========================================================
+   ECG CINC2020 - ESTILOS PRINCIPALES
+   Tema oscuro para clasificador ECG de 12 derivaciones
+   ========================================================= */
+
+/* ---------------------------------------------------------
+   General Body and Container
+   --------------------------------------------------------- */
+
 body {
     font-family: 'Inter', sans-serif;
-    background-color: #1a202c !important; /* Fondo oscuro original */
-    color: #e2e8f0 !important; /* Texto claro original */
+    background-color: #1a202c !important;
+    color: #e2e8f0 !important;
 }
 
 .container {
     max-width: 1200px;
     margin: 2rem auto;
     padding: 1.5rem;
-    background-color: #2d3748 !important; /* Fondo de contenedor más oscuro original */
+    background-color: #2d3748 !important;
     border-radius: 0.75rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    box-shadow:
+        0 4px 6px -1px rgba(0, 0, 0, 0.1),
+        0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
-/* Navbar Styles */
+/* ---------------------------------------------------------
+   Navbar
+   --------------------------------------------------------- */
+
 .navbar {
-    background-color: #21242e !important; /* Even darker for navbar */
+    background-color: #21242e !important;
     border-bottom: 1px solid #3b4050;
 }
 
 .navbar-brand {
-    color: #f0f0f0 !important; /* Brighter white for brand */
+    color: #f0f0f0 !important;
     font-weight: 600;
 }
 
-/* Jumbotron Styles */
+/* ---------------------------------------------------------
+   Jumbotron
+   --------------------------------------------------------- */
+
 .jumbotron {
-    background-color: #3b4050 !important; /* Match container background */
+    background-color: #3b4050 !important;
     color: #f0f0f0 !important;
     padding: 2.5rem 2rem;
     border-radius: 8px;
@@ -35,16 +51,19 @@ body {
     text-align: center;
 }
 
-/* Card Styles */
+/* ---------------------------------------------------------
+   Cards
+   --------------------------------------------------------- */
+
 .card {
-    background-color: #4a5066; /* Medium charcoal/blue-gray for cards */
+    background-color: #4a5066;
     border: none;
     border-radius: 8px;
     margin-bottom: 1.5rem;
 }
 
 .card-header {
-    background-color: #3b4050; /* Match container background for card headers */
+    background-color: #3b4050;
     color: #f0f0f0;
     font-weight: bold;
     border-bottom: none;
@@ -54,7 +73,7 @@ body {
 }
 
 .card-body {
-    background-color: #4a5066; /* Match card background */
+    background-color: #4a5066;
     color: #e0e0e0;
     padding: 1.25rem;
     border-bottom-left-radius: 8px;
@@ -62,39 +81,172 @@ body {
 }
 
 .card.summary-card {
-    background-color: #5d6b8a !important; /* Un azul-gris más claro para resaltar el resumen general */
+    background-color: #5d6b8a !important;
     border: 2px solid #7fa1e8;
-    box-shadow: 0 2px 8px 0 rgba(127,161,232,0.10);
+    box-shadow: 0 2px 8px 0 rgba(127, 161, 232, 0.10);
 }
 
-/* Table Styles */
+/* ---------------------------------------------------------
+   Tables
+   --------------------------------------------------------- */
+
 .table {
-    color: #e0e0e0; /* Light text for tables */
-    background-color: #4a5568 !important; /* Slightly lighter blue-gray for table body */
-    border-radius: 8px; /* Rounded corners for the table itself */
-    overflow: hidden; /* Ensures rounded corners clip content */
+    color: #e0e0e0;
+    background-color: #4a5568 !important;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
 .table thead th {
-    background-color: #2d3748 !important; /* Match card header background for table headers */
+    background-color: #2d3748 !important;
     color: #cbd5e0 !important;
-    border-bottom: 1px solid #4a5066; /* Darker border for header */
-    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid #4a5066;
+    padding: 0.75rem 1rem;
+    vertical-align: middle;
+}
+
+.table tbody td {
+    vertical-align: middle;
 }
 
 .table-striped tbody tr:nth-of-type(odd) {
-    background-color: rgba(0, 0, 0, 0.1); /* Subtle stripe effect */
+    background-color: rgba(0, 0, 0, 0.10);
 }
 
 .table-striped tbody tr:nth-of-type(even) {
-    background-color: rgba(0, 0, 0, 0.05); /* Even more subtle stripe */
+    background-color: rgba(0, 0, 0, 0.05);
 }
 
-.table-bordered th, .table-bordered td {
-    border: 1px solid #4a5066; /* Consistent border color */
+.table-bordered th,
+.table-bordered td {
+    border: 1px solid #4a5066;
 }
 
-/* Button Styles (Bootstrap defaults with adjusted colors) */
+/* ---------------------------------------------------------
+   Tabla de predicciones CINC2020
+   --------------------------------------------------------- */
+
+#predictionsTable {
+    width: 100%;
+    margin-bottom: 0;
+}
+
+#predictionsTable tbody tr {
+    transition:
+        background-color 0.2s ease,
+        transform 0.15s ease;
+}
+
+#predictionsTable tbody tr:hover {
+    background-color: rgba(127, 161, 232, 0.10);
+}
+
+#predictionsTable .class-code {
+    font-family: monospace;
+    font-weight: 700;
+    color: #93c5fd;
+    white-space: nowrap;
+}
+
+#predictionsTable .class-name {
+    color: #f0f0f0;
+    font-weight: 500;
+}
+
+#predictionsTable .probability-value {
+    color: #67e8f9;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+#predictionsTable .prediction-status {
+    white-space: nowrap;
+}
+
+/* ---------------------------------------------------------
+   Badges de predicción
+   --------------------------------------------------------- */
+
+.prediction-badge {
+    display: inline-block;
+    padding: 0.35rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.prediction-positive {
+    background-color: #166534;
+    color: #dcfce7;
+    border: 1px solid #22c55e;
+}
+
+.prediction-negative {
+    background-color: #374151;
+    color: #d1d5db;
+    border: 1px solid #6b7280;
+}
+
+/* ---------------------------------------------------------
+   Barra visual de probabilidad
+   --------------------------------------------------------- */
+
+.probability-container {
+    min-width: 180px;
+}
+
+.probability-bar {
+    width: 100%;
+    height: 8px;
+    background-color: #2d3748;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 0.35rem;
+}
+
+.probability-bar-fill {
+    height: 100%;
+    width: 0%;
+    background-color: #3b82f6;
+    border-radius: 999px;
+    transition: width 0.4s ease;
+}
+
+/* ---------------------------------------------------------
+   Resultados destacados
+   --------------------------------------------------------- */
+
+.result-highlight {
+    background-color: #5d6b8a;
+    border: 1px solid #7fa1e8;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.result-highlight-title {
+    font-weight: 700;
+    color: #f0f0f0;
+    margin-bottom: 0.35rem;
+}
+
+.result-highlight-value {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #93c5fd;
+}
+
+.result-highlight-probability {
+    color: #67e8f9;
+    font-weight: 700;
+}
+
+/* ---------------------------------------------------------
+   Botones
+   --------------------------------------------------------- */
+
 .btn {
     padding-left: 1.5rem;
     padding-right: 1.5rem;
@@ -103,7 +255,9 @@ body {
     font-weight: 700;
     color: #fff;
     border-radius: 0.5rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    box-shadow:
+        0 4px 6px -1px rgba(0, 0, 0, 0.1),
+        0 2px 4px -1px rgba(0, 0, 0, 0.06);
     transition-property: all;
     transition-duration: 300ms;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
@@ -112,17 +266,23 @@ body {
 .btn-primary {
     background-color: #2563eb !important;
 }
+
 .btn-primary:hover {
     background-color: #1d4ed8 !important;
 }
+
 .btn-secondary {
     background-color: #4b5563 !important;
 }
+
 .btn-secondary:hover {
     background-color: #374151 !important;
 }
 
-/* Custom file input adjustments for dark theme */
+/* ---------------------------------------------------------
+   Custom file input
+   --------------------------------------------------------- */
+
 .custom-file-label {
     position: absolute;
     top: 0;
@@ -142,6 +302,7 @@ body {
     align-items: center;
     justify-content: space-between;
 }
+
 .custom-file-label::after {
     content: "Explorar";
     background-color: #4a5568;
@@ -152,46 +313,68 @@ body {
     margin-left: 0.75rem;
 }
 
-/* Loader Styles */
+/* ---------------------------------------------------------
+   Loader
+   --------------------------------------------------------- */
+
 .loader {
-    border: 4px solid rgba(255, 255, 255, 0.3); /* Light grey for loader base */
-    border-top: 4px solid #1abc9c; /* Bright teal/green for spinner */
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-top: 4px solid #1abc9c;
     border-radius: 50%;
     width: 50px;
     height: 50px;
     animation: spin 1s linear infinite;
     margin: 30px auto;
 }
+
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
-/* Collapsible Buttons and Content */
+/* ---------------------------------------------------------
+   Collapsible
+   --------------------------------------------------------- */
+
 .collapsible {
-    background-color: #5d6b8a; /* Más claro que el card, para resaltar */
+    background-color: #5d6b8a;
     color: #fff;
     cursor: pointer;
     padding: 12px 18px;
     width: 100%;
-    border: none; /* Quitar borde */
+    border: none;
     text-align: left;
     outline: none;
     font-size: 1.1em;
     font-weight: 600;
-    transition: background-color 0.3s, box-shadow 0.3s;
+    transition:
+        background-color 0.3s,
+        box-shadow 0.3s;
     border-radius: 0.5rem;
     margin-top: 1rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    box-shadow: 0 2px 8px 0 rgba(127,161,232,0.13), 0 1.5px 4px 0 rgba(0,0,0,0.10);
+    box-shadow:
+        0 2px 8px 0 rgba(127, 161, 232, 0.13),
+        0 1.5px 4px 0 rgba(0, 0, 0, 0.10);
 }
-.collapsible.active, .collapsible:focus, .collapsible:hover {
+
+.collapsible.active,
+.collapsible:focus,
+.collapsible:hover {
     background-color: #7fa1e8;
     color: #fff;
-    box-shadow: 0 4px 16px 0 rgba(127,161,232,0.18), 0 2px 8px 0 rgba(0,0,0,0.13);
+    box-shadow:
+        0 4px 16px 0 rgba(127, 161, 232, 0.18),
+        0 2px 8px 0 rgba(0, 0, 0, 0.13);
 }
+
 .collapsible::after {
     content: '\002B';
     font-size: 0.9em;
@@ -200,54 +383,60 @@ body {
     margin-left: 5px;
     transition: transform 0.3s;
 }
+
 .collapsible.active::after {
     content: '\2212';
     transform: rotate(0deg);
 }
+
 .collapsible:hover {
     background-color: #4a5066;
 }
 
 .content {
-    background-color: #5d6b8a; /* Más claro que el card, para resaltar el fondo del colapsable */
+    background-color: #5d6b8a;
     border-bottom-left-radius: 8px;
     border-bottom-right-radius: 8px;
     margin-top: 0;
     overflow: hidden;
     max-height: 0;
-    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s;
+    transition:
+        max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+        padding 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+        box-shadow 0.4s;
     display: block;
     padding: 0;
-    box-shadow: 0 2px 8px 0 rgba(127,161,232,0.10);
+    box-shadow: 0 2px 8px 0 rgba(127, 161, 232, 0.10);
 }
+
 .content.show {
-    max-height: 2000px; /* Suficiente para la mayoría de los contenidos */
-    padding: 15px; /* Solo cuando está abierto */
-    box-shadow: 0 4px 16px 0 rgba(127,161,232,0.13);
+    max-height: 3000px;
+    padding: 15px;
+    box-shadow: 0 4px 16px 0 rgba(127, 161, 232, 0.13);
 }
 
-/* --- Estilos específicos migrados desde index.html --- */
+/* ---------------------------------------------------------
+   Datos del paciente
+   --------------------------------------------------------- */
 
-/* Tablas de predicción detallada y media */
-#detailedPredictionsTable tbody tr td {
-    color: #93c5fd;
-}
-#detailedPredictionsTable tbody tr:nth-child(odd) td {
-    color: #67e8f9;
-}
-#averagePredictionTable tbody tr td {
-    color: #93c5fd;
-}
-#averagePredictionTable tbody tr:nth-child(odd) td {
-    color: #67e8f9;
+.patient-data {
+    color: #e2e8f0;
 }
 
-/* Barra de progreso */
+.patient-data strong {
+    color: #f0f0f0;
+}
+
+/* ---------------------------------------------------------
+   Barra de progreso
+   --------------------------------------------------------- */
+
 .progress-section {
     width: 100%;
     margin-top: 20px;
     text-align: center;
 }
+
 .progress-bar-container {
     width: 80%;
     background-color: #e0e0e0;
@@ -256,6 +445,7 @@ body {
     margin: 10px auto;
     height: 25px;
 }
+
 .progress-bar-fill {
     height: 100%;
     width: 0%;
@@ -265,38 +455,151 @@ body {
     line-height: 25px;
     transition: width 0.4s ease-in-out;
 }
+
 .progress-text {
     font-size: 1.1em;
     color: #ecf0f1;
     margin-top: 5px;
 }
 
-/* Responsividad de imágenes de segmento */
-.segment-image {
+/* ---------------------------------------------------------
+   Gráfica completa del ECG
+   --------------------------------------------------------- */
+
+#fullEcgPlotContainer {
     width: 100%;
-    max-width: 300px;
+    margin-top: 1rem;
+}
+
+.full-ecg-image {
+    display: block;
+    width: 100%;
+    max-width: 1100px;
     height: auto;
+    margin: 0 auto;
     border-radius: 0.5rem;
-    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
     border: 1px solid #6b7280;
+    background-color: #ffffff;
+    box-shadow:
+        0 2px 4px -1px rgba(0, 0, 0, 0.10),
+        0 1px 2px -1px rgba(0, 0, 0, 0.06);
 }
-@media (min-width: 640px) {
-    .segment-image {
-        width: calc(50% - 0.5rem);
+
+/* ---------------------------------------------------------
+   Información del modelo
+   --------------------------------------------------------- */
+
+.model-info-value {
+    color: #93c5fd;
+    font-weight: 500;
+}
+
+.model-info-highlight {
+    color: #67e8f9;
+    font-weight: 700;
+}
+
+/* ---------------------------------------------------------
+   Alertas
+   --------------------------------------------------------- */
+
+.alert {
+    border-radius: 8px;
+}
+
+.alert-info {
+    background-color: #164e63;
+    border-color: #0891b2;
+    color: #cffafe;
+}
+
+.alert-success {
+    background-color: #14532d;
+    border-color: #22c55e;
+    color: #dcfce7;
+}
+
+.alert-warning {
+    background-color: #713f12;
+    border-color: #eab308;
+    color: #fef9c3;
+}
+
+.alert-danger {
+    background-color: #7f1d1d;
+    border-color: #ef4444;
+    color: #fee2e2;
+}
+
+/* ---------------------------------------------------------
+   Texto auxiliar
+   --------------------------------------------------------- */
+
+.text-muted {
+    color: #cbd5e1 !important;
+}
+
+.small-note {
+    font-size: 0.9rem;
+    color: #cbd5e1;
+}
+
+/* ---------------------------------------------------------
+   Footer
+   --------------------------------------------------------- */
+
+footer {
+    color: #cbd5e1;
+}
+
+/* ---------------------------------------------------------
+   Responsive
+   --------------------------------------------------------- */
+
+@media (max-width: 768px) {
+
+    .container {
+        margin: 1rem auto;
+        padding: 1rem;
     }
-}
-@media (min-width: 768px) {
-    .segment-image {
-        width: calc(33.333% - 0.666rem);
+
+    .jumbotron {
+        padding: 1.75rem 1rem;
+    }
+
+    .progress-bar-container {
+        width: 95%;
+    }
+
+    .probability-container {
+        min-width: 130px;
+    }
+
+    #predictionsTable {
+        font-size: 0.9rem;
     }
 }
 
-/* Contenido interno de colapsables para imágenes */
-.collapsible-inner-content {
-    padding-top: 1rem;
-    padding-bottom: 1rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    justify-content: center;
+@media (max-width: 576px) {
+
+    .container {
+        padding: 0.75rem;
+    }
+
+    .card-body {
+        padding: 1rem;
+    }
+
+    .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    #predictionsTable {
+        font-size: 0.82rem;
+    }
+
+    .probability-container {
+        min-width: 100px;
+    }
 }
