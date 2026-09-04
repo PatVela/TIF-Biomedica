@@ -9,10 +9,10 @@ El repositorio original está implementado en **Keras/TensorFlow (Python 2)**. E
 
 > ## Decisión sobre el conjunto de datos (importante)
 >
-> El docente solicitó una **réplica exacta** del artículo.
+> Se busca una **réplica exacta** del artículo.
 >
 > - El artículo y `awni/ecg` están construidos y validados sobre el conjunto **PhysioNet CinC 2017**: ECG de **una sola derivación (single-lead)**, **una etiqueta por registro**, reproducida en cada paso de salida de **256 muestras**. Este es exactamente el escenario que muestra el README del repositorio original (`examples/cinc17/`), por lo que constituye el **conjunto de datos principal** del proyecto.
-> - El conjunto de datos original de **iRhythm** utilizado en el artículo **no es público**. Usar **CinC 2020** (12 derivaciones y **múltiples etiquetas**) modificaría tanto el formato de los datos como la función de pérdida y parte de la arquitectura (BCE multietiqueta y 12 canales de entrada), por lo que **no sería una réplica exacta**. El soporte para CinC 2020 se explica más adelante.
+> - El conjunto de datos original de **iRhythm** utilizado en el artículo **no es público**. Usar **CinC 2020** (12 derivaciones y **múltiples etiquetas**) modificaría tanto el formato de los datos como la función de pérdida y parte de la arquitectura (BCE multietiqueta y 12 canales de entrada). El soporte para CinC 2020 se explica más adelante.
 
 ---
 
@@ -98,18 +98,11 @@ Esto es fundamental para reproducir correctamente la reducción temporal del art
 pip install -r requirements.txt
 ```
 
-Esto instala las dependencias principales:
-
-- torch
-- numpy
-- scipy
-- tqdm
+Esto instalara las dependencias principales.
 
 ---
 
 # Descargar los datos (PhysioNet CinC 2017)
-
-El conjunto de entrenamiento de **CinC 2017** requiere una cuenta de PhysioNet.
 
 Descarga:
 
