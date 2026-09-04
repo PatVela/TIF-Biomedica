@@ -1,289 +1,357 @@
-# ecg-pytorch — Detección de arritmias a nivel de cardiólogo (PyTorch)
+# ecg-pytorch — Detección y clasificación de arritmias a nivel de cardiólogo
 
-Una **reimplementación fiel en PyTorch** de [`awni/ecg`](https://github.com/awni/ecg), el código abierto que acompaña al artículo
+Reimplementación fiel en **PyTorch** del repositorio
+[`awni/ecg`](https://github.com/awni/ecg), el código abierto que acompaña al paper
 
-> **Cardiologist-Level Arrhythmia Detection and Classification in Ambulatory Electrocardiograms Using a Deep Neural Network**
-> Hannun, A. Y., Rajpurkar, P., Haghpanahi, M., Tison, G. H., Bourn, C., Turakhia, M. P., & Ng, A. Y. — *Nature Medicine*, 2019.
+> **Cardiologist-Level Arrhythmia Detection and Classification in Ambulatory
+> Electrocardiograms Using a Deep Neural Network**
+> Hannun, A. Y., Rajpurkar, P., Haghpanahi, M., Tison, G. H., Bourn, C.,
+> Turakhia, M. P., & Ng, A. Y. — *Nature Medicine*, 2019.
 
-El repositorio original está implementado en **Keras/TensorFlow (Python 2)**. Este proyecto traslada **la misma arquitectura y el mismo flujo de procesamiento de datos** 1:1 a PyTorch moderno.
+El repo original es una implementación en **Keras/TensorFlow** (Python 2). Este
+proyecto porta **la misma arquitectura y el mismo pipeline de datos** a PyTorch
+moderno.
 
-> ## Decisión sobre el conjunto de datos (importante)
+> ### ⚠️ Qué experimento se replica (importante para el informe)
+> El paper tiene **dos** resultados:
+> - **Resultado principal** (AUC 0.97): clasificador de **12 clases** sobre
+>   **91 232 registros privados de iRhythm** (1 derivación, 200 Hz, 30 s).
+>   **Los datos NO son públicos.**
+> - **Experimento de generalización** (el que se replica aquí): el mismo paper
+>   *también* entrenó la DNN sobre el **training set público de PhysioNet
+>   CinC2017 (n = 8 528)** y evaluó sobre el test set oculto (n = 3 658),
+>   reportando **F1 medio de clase = 0.83**.
 >
-> Se busca una **réplica exacta** del artículo.
->
-> - El artículo y `awni/ecg` están construidos y validados sobre el conjunto **PhysioNet CinC 2017**: ECG de **una sola derivación (single-lead)**, **una etiqueta por registro**, reproducida en cada paso de salida de **256 muestras**. Este es exactamente el escenario que muestra el README del repositorio original (`examples/cinc17/`), por lo que constituye el **conjunto de datos principal** del proyecto.
-> - El conjunto de datos original de **iRhythm** utilizado en el artículo **no es público**. Usar **CinC 2020** (12 derivaciones y **múltiples etiquetas**) modificaría tanto el formato de los datos como la función de pérdida y parte de la arquitectura (BCE multietiqueta y 12 canales de entrada). El soporte para CinC 2020 se explica más adelante.
+> Este proyecto reproduce **el experimento de generalización a CinC2017**, no el
+> resultado principal de 12 clases. Ver [Fidelidad y desviaciones](#fidelidad-y-desviaciones-respecto-al-paper).
 
 ---
 
-# Arquitectura (coincide exactamente con el artículo)
+## Arquitectura (idéntica al paper)
 
-```text
-entrada (B, 1, T)
+```
+input (B, 1, T)
   │
-  ├─ Conv1d(k=16, stride=1, SAME) ─ BatchNorm ─ ReLU    32 canales
-  ├─ 16 × bloques residuales, longitudes de submuestreo [1,2,1,2,...,1,2]
-  │     cada bloque:
-  │       - Atajo con MaxPool(subsample)
-  │       - Zero-padding cuando el número de canales se duplica
-  │       - 2 × [BatchNorm → ReLU → Conv1d(k=16)]
-  │
-  │     Los canales se duplican cada 4 bloques:
-  │       32 → 64 → 128 → 256
-  │
+  ├─ Conv1d(k=16,  stride=1, SAME) ─ BatchNorm ─ ReLU    32 canales
+  ├─ 16 × bloques residuales, subsample [1,2,1,2,...,1,2]
+  │     cada bloque: shortcut = MaxPool(subsample) (con relleno de ceros en
+  │     canales cuando se duplica el nº de canales, cada 4 bloques)
+  │     2 × [BN→ReLU→Conv1d(k=16, stride=subsample luego 1)]
+  │     canales ×2 cada 4 bloques: 32 → 64 → 128 → 256
   ├─ BatchNorm ─ ReLU
-  └─ Linear(num_categories) ─ Softmax
-        ⇒ salida (B, T/256, num_categories)
+  └─ Linear(num_categorías) ─ softmax  ⇒  salida (B, T/256, num_categorías)
 ```
 
-Cada paso temporal de la salida reducida produce una distribución **Softmax** sobre las clases de ritmo cardíaco; es decir, una clasificación cada **256 muestras** (≈0.85 s a 300 Hz), exactamente como en el artículo.
+Cada paso temporal de la salida (submuestreada) es un softmax sobre las clases de
+ritmo; es decir, **una clasificación cada 256 muestras** (~0.85 s a 300 Hz) —
+exactamente como en el paper. Los defaults reproducen
+`examples/cinc17/config.json` (filter 16, 32 filtros iniciales, 2 convs/bloque,
+canales ×2 cada 4 bloques, dropout 0.2, Adam lr 1e-3, ~10.5 M parámetros).
 
-La configuración por defecto reproduce `examples/cinc17/config.json` del repositorio original:
+### Correspondencia Keras → PyTorch
 
-- Longitud del filtro: **16**
-- Filtros iniciales: **32**
-- Dos convoluciones por bloque residual
-- Duplicación de canales cada cuatro bloques
-- Dropout: **0.2**
-- Adam con **lr = 1e-3**
-- Aproximadamente **10.5 millones de parámetros**
+| Keras / TF (`awni/ecg`)                    | PyTorch (este repo)                          |
+|--------------------------------------------|----------------------------------------------|
+| `Conv1D(padding='same')`                   | `nn.Conv1d` + padding `SAME` asimétrico      |
+| `MaxPooling1D(pool_size=s)`                | `nn.MaxPool1d(s)` + padding `SAME`           |
+| `BatchNormalization` + `Activation('relu')`| `nn.BatchNorm1d` + `nn.ReLU`                 |
+| `Dropout`                                  | `nn.Dropout`                                 |
+| `TimeDistributed(Dense)` + `softmax`       | `nn.Linear` sobre `(B,T,C)` + `nn.Softmax`   |
+| `categorical_crossentropy`                 | `nn.CrossEntropyLoss` sobre logits planos    |
+| `Adam(clipnorm=1)`                         | `torch.optim.Adam` + `clip_grad_norm_`       |
+| `ReduceLROnPlateau` / `EarlyStopping`      | LR-en-meseta + early-stop                    |
+| `ModelCheckpoint .hdf5`                    | `torch.save` `.pt` cada época                |
 
-## Correspondencia con el código original en Keras
-
-| Keras / TensorFlow (`awni/ecg`) | PyTorch (este proyecto) |
-|---------------------------------|---------------------------|
-| `Conv1D(padding='same')` | `nn.Conv1d` con padding `SAME` asimétrico |
-| `MaxPooling1D(pool_size=s)` | `nn.MaxPool1d(s)` con padding `SAME` |
-| `BatchNormalization` + `Activation('relu')` | `nn.BatchNorm1d` + `nn.ReLU` |
-| `Dropout` | `nn.Dropout` |
-| `TimeDistributed(Dense)` + `Softmax` | `nn.Linear` sobre `(B,T,C)` + `nn.Softmax` |
-| `categorical_crossentropy` | `nn.CrossEntropyLoss` |
-| `Adam(clipnorm=1)` | `torch.optim.Adam` + `clip_grad_norm_` |
-| `ReduceLROnPlateau` / `EarlyStopping` | Reducción manual del LR + parada temprana |
-| `ModelCheckpoint (.hdf5)` | `torch.save` (`.pt`) |
-
-### Convención de dimensiones
-
-Keras utiliza:
-
-```text
-(batch, tiempo, canales)
-```
-
-PyTorch utiliza:
-
-```text
-(batch, canales, tiempo)
-```
-
-La red realiza esta conversión internamente, por lo que las entradas siempre se proporcionan como:
-
-```text
-(B, 1, T)
-```
-
-### Padding `SAME`
-
-El padding `SAME` se implementa de forma **asimétrica** para que la longitud de salida coincida exactamente con TensorFlow/Keras:
-
-<math value="\\text{salida}=\\lceil n/\\text{stride}\\rceil"/>
-
-Esto es fundamental para reproducir correctamente la reducción temporal del artículo (división total entre **256**).
+> **Paridad numérica fijada en código:** BatchNorm usa `eps=1e-3, momentum=0.99`
+> (valores Keras) y Adam usa `eps=1e-7` (default Keras), para que el
+> entrenamiento se acerque lo máximo al original.
+>
+> **Convención de formas:** Keras es `(batch, time, channels)`, PyTorch es
+> `(batch, channels, time)`. La red lo maneja internamente: los callers siempre
+> pasan/obtienen `(B, 1, T)`.
+>
+> **Padding `SAME`:** implementado de forma asimétrica para que la longitud de
+> salida coincida exactamente con Keras/TF (`out = ceil(n / stride)`). Es
+> esencial para reproducir el downsample temporal (÷256).
 
 ---
 
-# Instalación
+## Requisitos
+
+- **Python 3.13.5** (CPython 3.13, wheels `cp313`)
+- **PyTorch con CUDA 13.0** para GPU (RTX 3050 Laptop = Ampere, `sm_86`). El
+  `requirements.txt` fija el wheel con el local-version tag `+cu130` para forzar
+  el build de CUDA (en lugar del de CPU).
+- Driver NVIDIA que soporte CUDA 13.0 (≈ driver 570+). Si tu driver es anterior,
+  usa la variante `cu128` del `requirements.txt` y `torch==2.14.0+cu128`.
 
 ```bash
+python -m venv venv
+source venv/bin/activate        # o .\venv\Scripts\Activate.ps1 en Windows
 pip install -r requirements.txt
-```
 
-Esto instalara las dependencias principales.
+# Verificar CUDA:
+python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.version.cuda)"
+# Debe imprimir algo como: 2.14.0+cu130 True 13.0
+```
 
 ---
 
-# Descargar los datos (PhysioNet CinC 2017)
+## Datos (PhysioNet CinC2017)
 
-Descarga:
+El dataset CinC2017 está restringido por un acuerdo de uso (requiere cuenta de
+PhysioNet). Descarga desde:
+**<https://physionet.org/content/challenge-2017/1.0.0/>**
 
-- `training2017.zip`
-- `REFERENCE-v3.csv`
+Necesitas:
+- `training2017/` (los registros) — o `training2017.zip`
+- `REFERENCE-v3.csv` (las etiquetas)
 
-desde:
-
-<https://physionet.org/content/challenge-2017/1.0.0/>
-
-Colócalos en:
-
-```text
-examples/cinc17/data/
-```
-
-Luego construye los conjuntos de entrenamiento y validación.
-
-### Opción automática
+Luego genera los conjuntos `train.json` / `dev.json`:
 
 ```bash
-cd examples/cinc17
-bash setup.sh
+python examples/cinc17/build_datasets.py \
+  --data_dir   dataset2017/training2017 \
+  --label_file dataset2017/REFERENCE-v3.csv \
+  --out_dir    examples/cinc17 \
+  --relative \          # guarda rutas relativas (portable, sin C:\Windows\
+  --stratify            # split proporcional a la clase (recomendado)
 ```
 
-### Opción manual
+Opciones de `build_datasets.py`:
+| Flag | Efecto |
+|---|---|
+| `--relative` | Guarda las rutas relativas a la raíz del proyecto (portables entre máquinas). |
+| `--stratify` | Divide proporcionalmente por clase (evita un dev con pocas muestras de las clases minoritarias `A`/`~`). |
+| `--dev_frac` | Fracción de dev (default `0.1`). |
+
+Esto escribe `examples/cinc17/train.json` y `dev.json` (JSONL, un registro por
+línea, con la ruta `ecg` y las `labels` repetidas cada 256 muestras).
+
+---
+
+## Entrenar
 
 ```bash
-python build_datasets.py \
-    --data_dir data/training2017 \
-    --label_file data/REFERENCE-v3.csv
+# desde la raíz del proyecto (las rutas de config.json son relativas a la raíz)
+python ecg/train.py examples/cinc17/config.json -e cinc17
 ```
 
-Esto genera:
+- Los checkpoints se guardan cada época en
+  `saved/<experimento>/<timestamp>/<val_loss>-<val_acc>-<epoch>-...pt`, junto con
+  el preprocesador (`preproc.bin`).
+- **El mejor modelo = menor `val_loss`** (primer número del nombre).
+- Callbacks del entrenamiento (iguales al repo original): `EarlyStopping(patience=8)`,
+  `ReduceLROnPlateau(factor=0.1, patience=2, min_lr=lr*0.001)`, checkpoint por
+  época.
 
-- `examples/cinc17/train.json`
-- `examples/cinc17/dev.json`
-
-en formato **JSONL**, con un registro por línea que contiene:
-
-- la ruta del ECG (`ecg`)
-- las etiquetas repetidas (`labels`) para cada paso temporal.
+> `config.json` está en `batch_size: 32` (paridad exacta con `awni/ecg`).
+> El paper usaba 128; si tu GPU no lo permite, baja el batch.
 
 ---
 
-# Entrenamiento
-
-Desde la raíz del repositorio:
+## Predecir
 
 ```bash
-python -m ecg.train examples/cinc17/config.json -e cinc17
+python ecg/predict.py examples/cinc17/dev.json "saved\cinc17\<ts>\0.408-0.862-011-0.274-0.904.pt"
 ```
 
-Los checkpoints se guardan en:
+Imprime la **clase mayoritaria por registro** (moda sobre los intervalos),
+replicando `entry/evaler.py`. En PowerShell puedes autoseleccionar el mejor:
 
-```text
-saved/<experimento>/<timestamp>/
+```powershell
+$best = Get-ChildItem -Path saved -Recurse -Filter "*.pt" |
+  Sort-Object { [double]($_.BaseName -split "-")[0] } | Select-Object -First 1
+python ecg/predict.py examples/cinc17/dev.json $best.FullName
 ```
 
-con nombres del tipo:
-
-```text
-6.210-0.354-003-....pt
-```
-
-También se almacena el preprocesador:
-
-```text
-preproc.bin
-```
-
-El mejor modelo corresponde al checkpoint con el **menor `val_loss`**.
+> **Nota (padding):** `predict.py` evalúa **cada registro de forma independiente**
+> (sin rellenar entre registros). Si se rellenara todo el lote a la longitud del
+> mayor, las zonas de ceros (aprendidas como `~`/ruido) inundarían de votos `~`
+> a los registros cortos y sesgarían la moda. Evaluar por registro da un
+> resultado honesto.
 
 ---
 
-# Predicción
+## Evaluar
 
 ```bash
-python -m ecg.predict \
-    examples/cinc17/dev.json \
-    saved/cinc17/<timestamp>/6.210-0.354-003-....pt
+# Evalúa sobre dev.json con el mejor checkpoint (auto-selección):
+python examples/cinc17/evaluate.py --data_json examples/cinc17/dev.json --saved saved
+
+# O con un checkpoint exacto:
+python examples/cinc17/evaluate.py --data_json examples/cinc17/dev.json `
+  --model_path "saved\cinc17\<ts>\0.408-0.862-011-0.274-0.904.pt"
+
+# Niveles: --level record | interval | both (default both)
 ```
 
-El programa imprime la **clase mayoritaria** de cada registro (la moda sobre todas las predicciones temporales), reproduciendo el comportamiento de `entry/evaler.py` del repositorio original.
+Imprime, por nivel:
+- **Exactitud (accuracy)**
+- **Macro-F1** (todas las clases) y **Weighted-F1**
+- **Challenge-F1 (N/A/O)** ← métrica **oficial** del challenge/paper
+- **Matriz de confusión** y **reporte por clase** (precision/recall/F1)
+
+> **Cómo interpretarlo:**
+> - **Nivel registro** (set-level): una clase por registro (la moda). Es la
+>   métrica que el paper reporta para CinC2017.
+> - **Nivel intervalo** (sequence-level): **solo diagnóstico interno** —
+>   CinC2017 no tiene etiqueta por intervalo; NO es una réplica del paper.
+> - **`Challenge-F1`** promedia **solo** `N, A, O` (excluye `~`). Es la métrica
+>   comparable con el **0.83 del paper**. En nuestro dev set da ≈ **0.845**.
 
 ---
 
-# Prueba rápida sin descargar datos
+## Aplicación web (Flask)
 
-Para comprobar que toda la tubería funciona de extremo a extremo con ECG sintéticos:
+Aplicación interactiva: subes un CSV de ECG de una sola derivación y muestra el
+trazado con la predicción coloreada por intervalo y la distribución de clases.
 
 ```bash
-python examples/cinc17/make_synthetic.py --train 80 --dev 40
+# Elige el mejor checkpoint automáticamente:
+python webapp/app.py --saved saved
 
-python -m ecg.train \
-    examples/cinc17/config_synthetic.json \
-    -e synth \
-    --epochs 2
+# O un checkpoint exacto / puerto personalizado:
+python webapp/app.py --model "saved\cinc17\<ts>\0.408-....pt" --port 5000
 ```
 
-Después puede utilizarse el checkpoint generado para realizar predicciones.
+Abre <http://127.0.0.1:5000/>. Para acceder desde otro dispositivo o WSL2:
+`python webapp/app.py --saved saved --host 0.0.0.0`.
 
-> Los datos sintéticos no contienen información clínica real; únicamente sirven para verificar que el pipeline funciona correctamente.
+**Formato del CSV** (igual al proyecto de referencia): la **primera celda de la
+primera fila numérica es la frecuencia de muestreo (Hz)** y el resto son las
+muestras de la señal.
 
----
+```
+Lead,II
+300,-0.0039,0.0290,0.0159,0.0338,...
+```
 
-# Soporte para CinC 2020
-
-CinC 2020 se incluye como una posible extensión futura, pero **no constituye una réplica exacta del artículo**.
-
-| Aspecto | CinC 2017 (este proyecto) | CinC 2020 |
-|----------|--------------------------|-----------|
-| Derivaciones | 1 | 12 |
-| Etiqueta | Una clase por registro | Múltiples diagnósticos SNOMED-CT |
-| Pérdida | Softmax categórico | BCE multietiqueta |
-| Formato | `.mat` / `212` | WFDB (`.dat` + `.hea`) |
-
-## Extensión prevista
-
-El cargador (`load_ecg`) ya admite múltiples formatos:
-
-- `.mat`
-- `.dat`
-- `.npy`
-- WFDB
-
-actualmente seleccionando la primera derivación.
-
-Para soportar completamente CinC 2020 bastaría con:
-
-1. cargar las 12 derivaciones mediante `wfdb.rdrecord()`,
-2. modificar la primera convolución para aceptar **12 canales de entrada**, y
-3. reemplazar la pérdida por **Binary Cross-Entropy** sobre múltiples diagnósticos.
-
-Los puntos de extensión principales son:
-
-- `ecg/network.py`
-- `ecg/load.py`
+Genera un CSV de ejemplo: `python webapp/make_sample_csv.py`.
+Más detalles en [`webapp/README.md`](webapp/README.md).
 
 ---
 
-# Estructura del repositorio
+## Smoke test (sin descargar datos)
 
-```text
+Para verificar que todo el pipeline corre (con señales sintéticas):
+
+```bash
+python examples/cinc17/make_synthetic.py --train 96 --dev 48
+# (config_synthetic.json apunta a examples/cinc17/synthetic/)
+python -m ecg.train examples/cinc17/config_synthetic.json -e synth --epochs 2
+python ecg/predict.py examples/cinc17/synthetic/dev.json "saved\synth\<ts>\<mejor>.pt"
+```
+
+> La señal sintética no puede aprender nada real; solo valida el pipeline.
+
+---
+
+## Fidelidad y desviaciones (respecto al paper / repo original)
+
+Sección para la tesis/informe — conviene declararla explícitamente.
+
+### 1. Qué experimento replicamos
+Ver el aviso superior. Reproducimos **el experimento de generalización a
+CinC2017** (n = 8 528; F1 = 0.83 en el test oculto), **no** el resultado
+principal de 12 clases con AUC = 0.97 (dato iRhythm privado).
+
+### 2. No usamos el test set real (hoy)
+Nuestros 8 528 registros = el training set público completo de CinC2017, partido
+90/10 (`train.json` 7 676 + `dev.json` 852). Consecuencias:
+- El **0.83** del paper se mide sobre el **test set oculto (3 658 registros)** por
+  el sistema oficial de PhysioNet → no se puede reproducir directamente.
+- `dev.json` ya se usó para **early stopping / selección de checkpoint**, así que
+  evaluar ahí sobreestima el rendimiento real (**leakage de selección de
+  modelo**).
+
+> **Para un número sin sesgo:** PhysioNet liberó las etiquetas del **test set**
+> tras cerrar el challenge. Descarga el test set + `REFERENCE-v3.csv`,
+> genera un `test.json` (igual que `build_datasets.py` pero apuntando a los
+> registros de test) y evalúa:
+> `python examples/cinc17/evaluate.py --data_json examples/cinc17/test.json --saved saved`.
+
+### 3. F1 oficial del challenge
+Los **0.83** del paper usan **F1 = (F1_N + F1_A + F1_O) / 3** (solo Normal, AF,
+Other; **excluye** `~`). `evaluate.py` reporta **ambas**: `Macro-F1` (todas las
+clases, métrica interna, NO comparable) y `Challenge-F1` (la oficial).
+
+### 4. Secuencia vs registro
+Para CinC2017 el paper reporta **solo nivel registro** (voto mayoritario). El
+nivel intervalo de `evaluate.py` es un **diagnóstico interno**, no el número del
+paper.
+
+### 5. Hiperparámetros frente al repo original
+El resto de `config.json` coincide exacto con
+`awni/ecg/examples/cinc17/config.json` (filter 16, 32 iniciales, dropout 0.2,
+num_skip 2, increase_channels_at 4, lr 1e-3). Única diferencia: **batch_size**.
+
+| Referencia                         | batch_size |
+|------------------------------------|------------|
+| Paper (Nature Medicine)            | **128**    |
+| `awni/ecg` (repo original)         | **32**     |
+| Este proyecto                      | **32**     |
+
+`EarlyStopping(patience=8)`, `ReduceLROnPlateau(factor=0.1, patience=2,
+min_lr=lr*0.001)` y checkpoint por época coinciden con el `train.py` original.
+
+### 6. Paridad numérica Keras ↔ PyTorch
+- **BatchNorm**: Keras `eps=1e-3, momentum=0.99` vs PyTorch default `1e-5, 0.1`.
+  Fijado en `network._BNRelu`.
+- **Adam `epsilon`**: Keras `1e-7` vs PyTorch `1e-8`. Fijado en `train.py`.
+
+### 7. Características conocidas / heredadas del repo original
+- `load.py` rellena (pad) el final del lote con la pseudo-clase `~` (comportamiento
+  original de Keras). El índice de relleno ahora se deriva del vocabulario
+  (`Preproc.pad_value`), no está hardcodeado a 3.
+- La pérdida **no enmascara** las regiones rellenadas (consistente con el original).
+- El split train/dev es aleatorio por defecto; usa `--stratify` para uno
+  proporcional por clase.
+
+---
+
+## Estructura del proyecto
+
+```
 ecg_pytorch/
-├── ecg/
-│   ├── network.py          # CNN (ECGNetwork), portada 1:1
-│   ├── load.py             # Preprocesamiento y carga de datos
-│   ├── train.py            # Entrenamiento
-│   ├── predict.py          # Inferencia
-│   ├── util.py             # Guardado del preprocesador
+├── ecg/                     # paquete principal (port PyTorch)
+│   ├── network.py           # la CNN (ECGNetwork), portada 1:1
+│   ├── load.py              # Preproc + generador + lectores WFDB/.mat/.dat
+│   ├── train.py             # loop de entrenamiento
+│   ├── predict.py           # inferencia + clase mayoritaria por registro
+│   ├── evaluate.py          # (ver examples/) evaluación formal real
+│   ├── util.py              # guardar/cargar preprocesador
 │   └── __init__.py
-│
-├── examples/cinc17/
-│   ├── config.json
-│   ├── config_synthetic.json
-│   ├── build_datasets.py
-│   ├── make_synthetic.py
-│   └── setup.sh
-│
-└── requirements.txt
+├── examples/
+│   └── cinc17/
+│       ├── config.json      # hiperparámetros del paper (batch 32)
+│       ├── config_synthetic.json
+│       ├── build_datasets.py# genera train.json / dev.json desde CinC2017
+│       ├── evaluate.py      # métricas oficiales + matriz de confusión
+│       ├── make_synthetic.py# datos ficticios para smoke test
+│       └── setup.sh
+├── webapp/                  # aplicación web Flask
+│   ├── app.py
+│   ├── prediction.py
+│   ├── make_sample_csv.py
+│   ├── templates/index.html
+│   └── static/{style.css, app.js}
+├── requirements.txt
+└── README.md
 ```
 
 ---
 
-# Licencia y atribución
+## Licencia
 
-Este proyecto es una **reimplementación** del repositorio **GPL-3.0 `awni/ecg`** y mantiene la atribución correspondiente al artículo original.
-
-## Cita recomendada
+Reimplementación del código GPL-3.0 de `awni/ecg`; sigue la cita del paper:
 
 ```bibtex
 @article{hannun2019cardiologist,
-  title={Cardiologist-level arrhythmia detection and classification in ambulatory electrocardiograms using a deep neural network},
-  author={Hannun, Awni Y and Rajpurkar, Pranav and Haghpanahi, Masoumeh and Tison, Geoffrey H and Bourn, Codie and Turakhia, Mintu P and Ng, Andrew Y},
-  journal={Nature Medicine},
-  volume={25},
-  number={1},
-  pages={65},
-  year={2019}
+  title={Cardiologist-level arrhythmia detection and classification in ambulatory
+         electrocardiograms using a deep neural network},
+  author={Hannun, Awni Y and Rajpurkar, Pranav and Haghpanahi, Masoumeh and
+          Tison, Geoffrey H and Bourn, Codie and Turakhia, Mintu P and Ng, Andrew Y},
+  journal={Nature Medicine}, volume={25}, number={1}, pages={65}, year={2019}
 }
 ```
-
-Esta implementación busca reproducir con la mayor fidelidad posible la arquitectura, el flujo de datos y el comportamiento del código original en Keras/TensorFlow, utilizando un entorno moderno basado en **PyTorch** y el conjunto de datos público **PhysioNet CinC 2017**, que es el escenario reproducible más cercano al empleado en el artículo original.
