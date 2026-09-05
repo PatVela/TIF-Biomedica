@@ -108,12 +108,7 @@ El dataset **PhysioNet CinC 2017** está restringido (requiere cuenta y aceptar 
 Colócalos en `dataset2017/` (o `training2017/` + `REFERENCE-v3.csv`) y genera los conjuntos:
 
 ```bash
-python examples/cinc17/build_datasets.py \
-  --data_dir   dataset2017/training2017 \
-  --label_file dataset2017/REFERENCE-v3.csv \
-  --out_dir    examples/cinc17 \
-  --relative            # rutas relativas (portable entre máquinas)
-  --stratify            # opcional: split proporcional a la clase
+python examples/cinc17/build_datasets.py --data_dir dataset2017/training2017 --label_file dataset2017/REFERENCE-v3.csv --out_dir examples/cinc17 --relative --stratify
 ```
 
 Esto produce `examples/cinc17/train.json` y `dev.json` (formato JSONL, un objeto por línea con `ecg` y `labels`). Por defecto el split es aleatorio 90/10; usa `--stratify` para que las clases minoritarias (`A`, `~`) queden representadas en `dev` a la misma tasa que en `train`.
@@ -132,7 +127,9 @@ Los checkpoints se guardan **en cada época** en `saved/<experimento>/<timestamp
 Predicción por registro (voto mayoritario sobre los intervalos):
 
 ```bash
-python -m ecg.predict examples/cinc17/dev.json "saved/cinc17/<timestamp>/0.408-0.862-011-0.274-0.904.pt"
+$best = Get-ChildItem -Path saved -Recurse -Filter "*.pt" |
+  Sort-Object { [double]($_.BaseName -split "-")[0] } | Select-Object -First 1
+python -m ecg.predict examples/cinc17/dev.json $best.FullName
 ```
 
 Evaluación formal con métricas:

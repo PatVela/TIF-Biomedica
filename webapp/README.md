@@ -57,6 +57,65 @@ waitress-serve --listen=*:5000 "webapp.wsgi:app"
 > `nombre:app`), y `webapp/wsgi.py` lee las variables de entorno
 > `ECG_SAVED` / `ECG_MODEL` para arrancar el `PredictionService` en el import.
 
+### Acceso desde otras redes (LAN e internet)
+
+**Misma red (Wi-Fi / LAN):** ejecuta con `--host 0.0.0.0` (o `--listen=*:PUERTO`)
+y abre la **IP local** de tu máquina (Windows: `ipconfig` → IPv4). Debes permitir
+el puerto en el **firewall** (Windows Defender Firewall → permitir puerto entrante,
+o regla de entrada para el puerto elegido). Desde otro dispositivo de la misma red
+usa `http://<IP-de-tu-PC>:5000/` (no `127.0.0.1`).
+
+**Otra red (internet), sin IP pública ni port-forwarding:** usa un **túnel HTTPS**.
+El script `webapp/run_public.sh` abre uno automáticamente:
+
+```bash
+# opción 1 — Cloudflare Tunnel (gratuito, sin cuenta para uso básico)
+./webapp/run_public.sh          # imprime la URL pública https://...trycloudflare.com
+
+# opción 2 — ngrok (requiere token)
+ngrok config add-authtoken <TU_TOKEN>
+TUNNEL=ngrok ./webapp/run_public.sh
+```
+
+El túnel **termina TLS**, así que cualquiera en otra red abre la app por
+`https://<url-pública>/` de forma segura. **Recomendación:** usa un túnel solo
+para demo; cierra la URL cuando termines (la URL es accesible por cualquiera que
+la tenga). Para un despliegue estable, sube a Render/Heroku (ver abajo).
+
+> En la interfaz, para abrir desde otro dispositivo recuerda que NO se usa
+> `127.0.0.1` (loopback de la app) sino la IP/URL pública. `0.0.0.0` y `[::]`
+> son direcciones de escucha del servidor, no URL de navegación.
+
+### HTTPS / Seguridad
+
+`wsgi.py` y `app.py` **no pueden** hacer TLS por sí solos de forma "mágica"; el
+HTTPS se termina en la capa de servidor/proxy. Tienes dos vías:
+
+**A) TLS directo con un certificado** (para prueba interna / demo):
+```bash
+./webapp/run_https.sh    # genera un cert autofirmado en certs/ y sirve por https://
+# o con tu propio certificado:
+CERT=mi-cert.pem KEY=mi-key.pem ./webapp/run_https.sh
+```
+(waitress necesita `--ssl-certfile`/`--ssl-keyfile`; `run_https.sh` se los pasa.)
+
+**B) TLS terminado por un proxy / plataforma** (producción real):
+- **nginx + Let's Encrypt (certbot)** como reverse proxy delante de gunicorn/waitress.
+- **caddy** (configura TLS automáticamente con un dominio).
+- **Render / Heroku / Railway** → gestionan HTTPS automáticamente; solo expones
+  el `Procfile` (`web: gunicorn ...`) y el certificado es de la plataforma.
+
+**Cabeceras de seguridad** (ya aplicadas por `add_security_headers` en `app.py`):
+`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
+`Referrer-Policy`, `Permissions-Policy`, `Cache-Control: no-store`, y
+**`Strict-Transport-Security` (HSTS)** que se activa **solo** cuando la petición
+llega por HTTPS (detectado por `request.is_secure` o `X-Forwarded-Proto: https`).
+Configura `ProxyFix`/un proxy que ponga `X-Forwarded-Proto` si usas reverso proxy.
+
+> **Privacidad:** los campos de paciente (nombre/edad) se usan **solo en el
+> navegador** para el informe; no se envían al servidor ni se persisten. No
+> introduzcas datos de salud reales en una demo pública.
+
 ### Notas de despliegue
 
 - **Carga del modelo:** se realiza una sola vez al arrancar (en el import), no
@@ -87,21 +146,25 @@ waitress-serve --listen=*:5000 "webapp.wsgi:app"
 
 ## Funcionalidades de la interfaz
 
-- **Gráfico interactivo (Plotly)**: zoom/pan, tooltip al pasar el cursor por cada
-  intervalo (clase + probabilidad + tiempo) y sincronización del gráfico con los
-  resultados. El JS de Plotly está **embebido localmente**
-  (`static/plotly.min.js`), por lo que el gráfico funciona sin conexión/CDN.
-- **Selector de checkpoint** en la interfaz: cambia de modelo **sin reiniciar el
-  servidor** (`/use_model`).
-- **Botón "Probar con ejemplo"**: genera y clasifica una señal en el servidor,
-  sin subir nada (`/example`).
-- **Drag-and-drop** del archivo sobre la zona de carga.
-- **Campo "Etiqueta real"** (opcional): si conoces la clase del registro,
-  la app te marca si el resultado coincide (✔/✘).
-- **Exportar**: CSV/JSON de las predicciones por intervalo y el PNG del trazado.
-- **Métricas del modelo** visibles en la sección "Modelo" (val_loss/acc de
-  entrenamiento); las métricas completas se obtienen con
-  `examples/cinc17/evaluate.py`.
+- **Gráfico interactivo (Plotly)**: zoom/pan, tooltip por intervalo (clase +
+  probabilidad + tiempo). El JS de Plotly está **embebido localmente**, por lo
+  que funciona sin conexión/CDN.
+- **Pestañas**: *Visualización* (gráfico), *Informe* (imprimible a PDF) y
+  *Detalle técnico*. Permite ver el ECG completo sin saturar la pantalla.
+- **Modo claro / oscuro** (toggle 🌓, se recuerda en el navegador).
+- **Bilingüe** ES/EN (toggle en la cabecera).
+- **Resultado en lenguaje natural**: tarjeta de diagnóstico destacada + un
+  **semáforo por clase** (predominante / presente / bajo) — pensado para personal
+  sanitario.
+- **Validación**: checkbox "confirmo que es un ECG de una sola derivación" antes
+  de analizar.
+- **Informe imprimible**: paciente/edad/fecha, ritmo predominante, distribución y
+  el trazado del ECG (botón "Descargar informe (PDF)").
+- **Botón "Usar señal de prueba"** (sin subir nada) y **drag-and-drop**.
+- **Selector de checkpoint automático**: el servidor elige el mejor modelo
+  (menor `val_loss`) al arrancar; no hay que elegir nada en la interfaz.
+- **Comparar con etiqueta real** (opcional, campo "Diagnóstico conocido").
+- **Métricas del modelo** y **re-muestreo automático** a 300 Hz con aviso.
 
 ## Generar un CSV de ejemplo
 
@@ -124,10 +187,12 @@ entrenamiento) antes de inferir.
 
 ```
 webapp/
-├── app.py              # rutas Flask (GET /, POST /predict, /example, /models, /use_model)
+├── app.py              # rutas Flask + cabeceras de seguridad (add_security_headers)
 ├── prediction.py       # PredictionService + resampling + parser CSV + rend. PNG/Plotly
 ├── make_sample_csv.py  # genera un CSV de ejemplo
 ├── wsgi.py             # entrada WSGI para gunicorn/waitress (lee ECG_MODEL/ECG_SAVED)
+├── run_https.sh        # sirve por HTTPS con certificado (autofirmado o propio)
+├── run_public.sh       # expone la app a internet con un túnel HTTPS (cloudflared/ngrok)
 ├── templates/index.html
 └── static/
     ├── style.css

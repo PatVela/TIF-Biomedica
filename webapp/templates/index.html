@@ -1,107 +1,231 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Clasificación de ECG · Replica Hannun (PyTorch)</title>
+  <title data-i18n="app.title">Clasificador de ECG · Trabajo de Investigación UNSA</title>
+  <meta name="description" content="Asistente automático de lectura de ECG basado en deep learning (Hannun et al., Nature Medicine 2019).">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+  <!-- ================= ENCABEZADO INSTITUCIONAL ================= -->
+  <header class="inst-strip" data-institucion="{{ project.institucion }}" data-facultad="{{ project.facultad }}" data-escuela="{{ project.escuela }}" data-curso="{{ project.curso }}{% if project.curso_codigo %} · {{ project.curso_codigo }}{% endif %} {{ project.anio }}">
+    <div class="inst-left">
+      <span class="inst-escudo" aria-hidden="true">
+        <svg viewBox="0 0 48 48" width="44" height="44" role="img" aria-label="Escudo UNSA">
+          <rect x="2" y="2" width="44" height="44" rx="8" fill="#0d2b52"/>
+          <path d="M24 6l14 7v10c0 9-6 15-14 19C16 38 10 32 10 23V13z" fill="#f2f5fa"/>
+          <path d="M24 10l10 5v8c0 7-4 11-10 15-6-4-10-8-10-15v-8z" fill="#c9a227"/>
+          <text x="24" y="26" font-size="9" font-family="serif" text-anchor="middle" fill="#0d2b52" font-weight="bold">UNSA</text>
+        </svg>
+      </span>
+      <div class="inst-txt">
+        <span class="inst-nombre">{{ project.institucion }}</span>
+        <span class="inst-facultad">{{ project.facultad }} · {{ project.escuela }}</span>
+        <span class="inst-curso">{{ project.curso }}{% if project.curso_codigo %} · {{ project.curso_codigo }}{% endif %} · {{ project.anio }}</span>
+      </div>
+    </div>
+    <div class="inst-titulo">{{ project.titulo }}</div>
+  </header>
+
+  <!-- ================= BARRA PRINCIPAL ================= -->
   <header class="topbar">
-    <h1>Clasificador de Arritmias — ECG</h1>
-    <p class="subtitle">
-      Réplica en PyTorch de <em>Cardiologist-Level Arrhythmia Detection
-      and Classification</em> (Hannun et al., <em>Nature Medicine</em> 2019).
-      Modelo entrenado con PhysioNet <strong>CinC2017</strong> (300 Hz).
-    </p>
+    <div class="brand">
+      <span class="logo">ECG</span>
+      <div>
+        <h1 data-i18n="app.title">Clasificador de Electrocardiogramas</h1>
+        <p class="subtitle" data-i18n="app.subtitle">
+          Lectura automática de ECG de una sola derivación (modelo Hannun et al., Nature Medicine 2019, datos PhysioNet).
+        </p>
+      </div>
+    </div>
+    <div class="topbar-controls">
+      <div class="topbar-badge" title="{{ model_train_date }}">
+        <span class="dot"></span><span data-i18n="app.ready">Modelo listo</span>
+        <span class="model-name" id="modelName" title="">{{ model_hash }}</span>
+      </div>
+      <div class="seg-group" role="group" aria-label="Idioma">
+        <button type="button" id="langEs" class="seg active">ES</button>
+        <button type="button" id="langEn" class="seg">EN</button>
+      </div>
+      <button type="button" id="themeToggle" class="icon-btn" title="Modo claro/oscuro">🌓</button>
+    </div>
   </header>
 
   <main class="container">
+    <!-- ---------- PASO 1 · CARGAR ---------- -->
     <section class="card">
-      <h2>1. Modelo</h2>
-      <div class="model-row">
-        <label>
-          Checkpoint:
-          <select id="modelSel">
-            {% for m in checkpoints %}
-              <option value="{{ m }}">{{ m }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <button type="button" id="btnSwitch">Cambiar modelo</button>
-      </div>
-      <table class="model-table">
-        <tbody>
-          <tr><th>Device</th><td>{{ model_info.device if model_info else '—' }}</td></tr>
-          <tr><th>Clases</th><td>{{ (model_info.classes | join(', ')) if model_info else '—' }}</td></tr>
-          <tr><th>Intervalo de salida</th><td>cada 256 muestras (≈{{ '0.85' }} s a 300 Hz)</td></tr>
-          <tr><th>Val. loss / acc (entrenam.)</th>
-              <td>
-                {% if model_info and model_info.meta %}
-                  {{ '%.4f' % model_info.meta.val_loss }} / {{ '%.3f' % model_info.meta.val_acc }}
-                  <span class="muted">(época {{ model_info.meta.epoch }})</span>
-                {% else %}—{% endif %}
-              </td></tr>
-        </tbody>
-      </table>
-      <p class="hint muted">
-        Métricas completas (accuracy, macro-F1, <code>Challenge-F1</code>, matriz de
-        confusión) sobre el dev set: <code>python examples/cinc17/evaluate.py --saved {{ models_dir }}</code>
+      <h2 class="step"><span class="step-num">1</span><span data-i18n="step1.title">Cargar el electrocardiograma</span></h2>
+      <p class="intro" data-i18n="step1.intro">
+        Sube una grabación de ECG de una sola derivación (una línea del electrocardiograma) o elige un ejemplo preconfigurado con un clic.
       </p>
-    </section>
-
-    <section class="card">
-      <h2>2. Señal de entrada</h2>
-      <div class="hint">
-        Archivo <strong>CSV</strong> (una derivación), <strong>.mat</strong>,
-        <strong>.dat</strong> o <strong>.npy</strong>. Formatos CSV:
-      </div>
-      <ul class="hint">
-        <li><strong>Formato fila</strong>: <code>300,&nbsp;12.0,&nbsp;12.1,&nbsp;...</code>
-            (primera celda de la primera fila numérica = frecuencia en Hz).</li>
-        <li><strong>Formato columna</strong>: una muestra por fila (se asume 300 Hz si no hay frecuencia).</li>
-      </ul>
 
       <div id="dropzone" class="dropzone">
-        <p>Arrastra el archivo aquí <span class="muted">o</span></p>
-        <input type="file" id="file" name="file"
-               accept=".csv,.mat,.dat,.npy,text/csv" required>
+        <div class="dz-icon">📄</div>
+        <p class="dz-main" data-i18n="step1.drop">Arrastra el archivo aquí</p>
+        <p class="dz-sub" data-i18n="step1.dropSub">o haz clic para seleccionarlo</p>
+        <input type="file" id="file" name="file" accept=".csv,.mat,.dat,.npy,text/csv" required>
       </div>
 
-      <div class="row-inline">
-        <span class="muted">Etiqueta real (opcional, para comparar):</span>
-        <input type="text" id="trueLabel" class="label-input"
-               list="classList" placeholder="ej. N, A, O, ~">
-        <datalist id="classList">
-          {% for c in model_info.classes if model_info %}<option value="{{ c }}">{% endfor %}
-        </datalist>
+      <div id="fileCard" class="file-card" hidden></div>
+
+      <p class="hint muted">
+        <span data-i18n="step1.formats">Formatos:</span> <strong>CSV</strong>, <strong>.mat</strong>, <strong>.dat</strong>, <strong>.npy</strong>.
+        <span class="detail-toggle" id="fmtHelp" data-i18n="step1.help">¿Qué formato debo usar?</span></p>
+      <div id="fmtHelpBox" class="help-box" hidden>
+        <p><strong>CSV (recomendado):</strong> <span data-i18n="step1.helpCsv">el primer número de la primera fila es la frecuencia de muestreo (Hz) y el resto son los valores de la señal.</span>
+        <code>300,12.0,12.1,12.3,...</code></p>
+        <p data-i18n="step1.helpOther">Los archivos .mat, .dat y .npy de una sola derivación también se aceptan. Si la señal tiene otra frecuencia, se ajusta automáticamente.</p>
+      </div>
+
+      <div class="patient-grid">
+        <label><span data-i18n="step1.name">Paciente (opcional)</span>
+          <input type="text" id="patName" placeholder="Nombre / ID"></label>
+        <label><span data-i18n="step1.age">Edad (opcional)</span>
+          <input type="text" id="patAge" inputmode="numeric" placeholder="—"></label>
+        <label><span class="muted" data-i18n="step1.gt">Diagnóstico conocido (opcional)</span>
+          <input type="text" id="trueLabel" class="label-input" placeholder="Normal, AF, Otro, Ruido"></label>
+      </div>
+
+      <!-- EJEMPLOS RÁPIDOS -->
+      <div class="quickwrap">
+        <div class="quick-label" data-i18n="step1.quick">Ejemplos rápidos (para demo)</div>
+        <div class="quick-grid">
+          <button type="button" class="example-card" data-kind="normal">
+            <span class="example-dot" style="background:#2ca02c"></span>
+            <span><strong data-i18n="quick.normal">Ritmo normal</strong><br><small data-i18n="quick.normalSub">ejemplo · sin subir archivo</small></span>
+          </button>
+          <button type="button" class="example-card" data-kind="af">
+            <span class="example-dot" style="background:#d62728"></span>
+            <span><strong data-i18n="quick.af">Fibrilación auricular</strong><br><small data-i18n="quick.afSub">ejemplo · sin subir archivo</small></span>
+          </button>
+          <button type="button" class="example-card" data-kind="noise">
+            <span class="example-dot" style="background:#7f7f7f"></span>
+            <span><strong data-i18n="quick.noise">Ruido / artefacto</strong><br><small data-i18n="quick.noiseSub">ejemplo · sin subir archivo</small></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="confirm-row">
+        <label class="checkbox">
+          <input type="checkbox" id="confirmCheck">
+          <span data-i18n="step1.confirm">Confirmo que la señal es un ECG de una sola derivación.</span>
+        </label>
       </div>
 
       <div class="btn-row">
-        <button type="button" id="btnExample" class="secondary">Probar con ejemplo</button>
-        <button type="submit" id="btnClassify">Clasificar</button>
+        <button type="submit" id="btnClassify" class="primary big"><span class="btn-spinner" aria-hidden="true"></span><span data-i18n="btn.analyze">Analizar ECG</span></button>
       </div>
       <div id="status" class="status" role="status"></div>
     </section>
 
+    <!-- ---------- PASO 2 · RESULTADO ---------- -->
     <section class="card" id="result" hidden>
-      <div class="result-head">
-        <h2>3. Resultados</h2>
+      <h2 class="step"><span class="step-num">2</span><span data-i18n="step2.title">Resultado</span></h2>
+
+      <div id="emptyState" class="empty-state">
+        <div class="es-icon">🫀</div>
+        <p class="es-title" data-i18n="empty.title">Aún no hay resultados</p>
+        <p data-i18n="empty.body">Sube un ECG o usa un ejemplo rápido y pulsa «Analizar ECG». El resultado aparecerá aquí.</p>
+      </div>
+
+      <div id="notice" class="notice"></div>
+
+      <div id="resultBody" hidden>
+      <!-- Diagnóstico destacado + semáforo -->
+      <div class="diagnosis" id="diagnosisBox"></div>
+      <div id="trafficBox" class="traffic"></div>
+
+      <!-- PESTAÑAS -->
+      <div class="tabs" id="tabs">
+        <button type="button" class="tab active" data-tab="vis"><span data-i18n="tab.vis">Visualización</span></button>
+        <button type="button" class="tab" data-tab="rep"><span data-i18n="tab.report">Informe</span></button>
+        <button type="button" class="tab" data-tab="det"><span data-i18n="tab.detail">Detalle técnico</span></button>
+      </div>
+
+      <div class="tab-panel active" id="panel-vis">
+        <div id="summaryBox" class="summary"></div>
+        <div id="gtBox" class="gt"></div>
+        <div class="plot-wrap"><div id="plotDiv"></div></div>
+      </div>
+
+      <div class="tab-panel" id="panel-rep">
+        <div id="reportBody" class="report"></div>
         <div class="btn-row">
-          <button type="button" id="btnExportCsv" class="secondary">Exportar CSV</button>
-          <button type="button" id="btnExportJson" class="secondary">Exportar JSON</button>
-          <button type="button" id="btnExportPng" class="secondary">Guardar PNG</button>
+          <button type="button" id="btnPrint" class="secondary big">🖨 <span data-i18n="btn.print">Descargar informe (PDF)</span></button>
         </div>
       </div>
-      <div id="notice" class="notice"></div>
-      <div id="summaryBox" class="summary"></div>
-      <div id="gtBox" class="gt"></div>
-      <div class="plot-wrap"><div id="plotDiv"></div></div>
-      <div id="intervalList" class="intervals"></div>
+
+      <div class="tab-panel" id="panel-det">
+        <div class="method" data-i18n="methodology"></div>
+
+        <h3 class="sec-title"><span class="sec-tag" data-i18n="det.model">Ficha técnica del modelo</span></h3>
+        <table class="model-table">
+          <tbody>
+            <tr><th data-i18n="det.arch">Arquitectura</th><td data-i18n="det.archVal">CNN profunda (Hannun et al., Nature Medicine 2019) · 34 capas residuales / 1.3 M parámetros</td></tr>
+            <tr><th data-i18n="det.dataset">Conjunto de datos</th><td data-i18n="det.datasetVal">PhysioNet CinC2017 · ECG de una derivación · 300 Hz · segmentos de 256 muestras</td></tr>
+            <tr><th data-i18n="det.classes">Ritmos reconocidos</th><td>{{ (model_info.classes) if model_info else '—' }}</td></tr>
+            <tr><th data-i18n="det.val">Fe del entrenamiento (val)</th><td>
+              {% if model_info and model_info.meta %}
+                <span data-i18n="det.acc">exactitud</span> {{ '%.1f' % (model_info.meta.val_acc*100) }}% ·
+                <span data-i18n="det.loss">pérdida</span> {{ '%.3f' % model_info.meta.val_loss }} (época {{ model_info.meta.epoch }})
+              {% else %}—{% endif %}</td></tr>
+            <tr><th data-i18n="det.trained">Entrenado</th><td>{{ model_train_date or '—' }}{% if model_hash %} · id <code>{{ model_hash }}</code>{% endif %}</td></tr>
+          </tbody>
+        </table>
+        <div id="metricsBox" class="metrics" hidden>
+          <h3 class="sec-title"><span class="sec-tag">Métricas de validación</span></h3>
+          <div class="metrics-grid">
+            <figure><img src="/static/metrics/confusion_matrix.png" alt="Matriz de confusión"><figcaption>Matriz de confusión</figcaption></figure>
+            <figure><img src="/static/metrics/f1_per_class.png" alt="F1 por clase"><figcaption>F1 por clase</figcaption></figure>
+          </div>
+        </div>
+
+        <div id="intervalList" class="intervals"></div>
+        <p class="hint muted"><code>python examples/cinc17/evaluate.py --saved {{ models_dir }} --save_metrics_dir webapp/static/metrics</code></p>
+      </div>
+      </div><!-- /resultBody -->
     </section>
   </main>
 
+  <!-- ================= PIE DE PÁGINA ================= -->
+  <footer class="site-footer">
+    <div class="footer-grid">
+      <div class="footer-col footer-about">
+        <div class="footer-brand"><span class="logo">ECG</span><span data-i18n="app.title">Clasificador de Electrocardiogramas</span></div>
+        <p data-i18n="app.summaryShort">Asistente automático de lectura de ECG de una sola derivación (Hannun et al., Nature Medicine 2019 · PhysioNet).</p>
+        <p class="footer-meta">{{ project.institucion }} · {{ project.escuela }}</p>
+      </div>
+
+      <div class="footer-col">
+        <h4 data-i18n="footer.auth">Ficha de autoría</h4>
+        <p class="kp"><span data-i18n="footer.author">Autor/a:</span> {{ project.autor or '—' }}</p>
+        <p class="kp"><span data-i18n="footer.advisor">Asesor/a:</span> {{ project.asesor or '—' }}</p>
+        <p class="kp"><span data-i18n="footer.course">Curso:</span> {{ project.curso }}{% if project.curso_codigo %} · {{ project.curso_codigo }}{% endif %} · {{ project.anio }}</p>
+        <p class="kp"><span data-i18n="footer.version">Versión:</span> {{ project.version }} · <span data-i18n="footer.model">Modelo:</span> <span id="modelNameFooter" style="font-size:.82em">{{ model_hash or '—' }}</span></p>
+      </div>
+
+      <div class="footer-col">
+        <h4 data-i18n="footer.privacy">Privacidad y seguridad</h4>
+        <p data-i18n="footer.privacyText">Los datos de paciente se usan solo en su navegador para el informe y se eliminan tras procesarse. Los archivos subidos no se conservan.</p>
+        <p class="kp" data-i18n="footer.academic">Sistema desarrollado con fines académicos de investigación.</p>
+      </div>
+    </div>
+
+    <!-- REFERENCIAS -->
+    <div class="footer-refs">
+      <h4 data-i18n="footer.refs">Referencias</h4>
+      <p>{{ reference.cita }} <a href="{{ reference.doi }}" target="_blank" rel="noopener">DOI {{ reference.doi.split('/')[-1] }}</a></p>
+      <p>{{ reference.dataset }}</p>
+    </div>
+
+    <p class="footer-disclaimer" data-i18n="app.disclaimer">
+      ⚠️ Herramienta de investigación. No sustituye la lectura de un cardiólogo ni debe usarse para diagnóstico clínico.
+    </p>
+    <p class="footer-academic" data-i18n="app.disclaimer2">Desarrollado como parte del curso Trabajo de Investigación · UNSA.</p>
+  </footer>
+
   <script src="{{ url_for('static', filename='plotly.min.js') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a36085279eff892e',t:'MTc4ODU2MTg4MA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a36161257cd1e7a9',t:'MTc4ODU3MDg5MQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

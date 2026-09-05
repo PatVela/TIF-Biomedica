@@ -251,9 +251,10 @@ class PredictionService:
 
         trace = {'x': np.asarray(t).tolist(), 'y': np.asarray(signal).tolist(),
                  'mode': 'lines', 'name': 'ECG', 'type': 'scatter',
-                 'line': {'color': '#1a1a2e', 'width': 1}}
+                 'line': {'color': '#132436', 'width': 1}}
         return {'traces': [trace], 'shapes': shapes,
-                'interval_s': round(STEP / fs_eff, 4)}
+                'interval_s': round(STEP / fs_eff, 4),
+                'grid': {'fs': fs_eff}}
 
 
 def _color(label):
@@ -346,3 +347,22 @@ def find_best_model(models_dir):
 def list_checkpoints(models_dir):
     """Return all .pt checkpoints under models_dir sorted by best (val_loss)."""
     return util.list_checkpoints(models_dir)
+
+
+def _short_model_id(model_path):
+    """A short, stable identifier for a checkpoint (for display in the UI).
+
+    Uses a truncated SHA-256 of the file content, so the same model always
+    shows the same id (a poor-man's 'version commit' for reproducibility).
+    """
+    if not model_path or not os.path.exists(model_path):
+        return ''
+    try:
+        import hashlib
+        h = hashlib.sha256()
+        with open(model_path, 'rb') as f:
+            for block in iter(lambda: f.read(1 << 20), b''):
+                h.update(block)
+        return h.hexdigest()[:10]
+    except (OSError, ValueError):
+        return ''

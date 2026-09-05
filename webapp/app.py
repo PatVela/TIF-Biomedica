@@ -23,11 +23,16 @@ import uuid
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
+# make sibling modules (prediction) importable when loaded as a package
+_WEBAPP = os.path.dirname(os.path.abspath(__file__))
+if _WEBAPP not in sys.path:
+    sys.path.insert(0, _WEBAPP)
 
 from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 
 import prediction as pred_mod
+import project_info as proj
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
@@ -36,6 +41,31 @@ log = logging.getLogger('ecg-webapp')
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024   # 64 MB uploads
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads')
+
+
+@app.after_request
+def add_security_headers(resp):
+    """Security hardening. TLS itself is terminated by the reverse proxy or the
+    waitress/gunicorn SSL options (see webapp/README.md 'Seguridad'); here we set
+    browser security headers and enable HSTS only when serving over HTTPS."""
+    resp.headers['X-Content-Type-Options'] = 'nosniff'
+    resp.headers['X-Frame-Options'] = 'DENY'
+    resp.headers['Referrer-Policy'] = 'no-referrer'
+    resp.headers['X-XSS-Protection'] = '1; mode=block'
+    resp.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+    resp.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "img-src 'self' data: blob:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self'; "
+        "connect-src 'self'; "
+        "font-src 'self'; "
+        "frame-ancestors 'none'")
+    resp.headers['Cache-Control'] = 'no-store'
+    # enable HSTS only if we are actually serving HTTPS (proxy or direct TLS)
+    if request.is_secure or request.headers.get('X-Forwarded-Proto') == 'https':
+        resp.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    return resp
 
 SERVICE = None          # current PredictionService
 SERVICE_LOCK = threading.Lock()
@@ -58,14 +88,32 @@ def _sanitize(err):
     return text[:300]
 
 
+def _model_train_date(path):
+    """Return the checkpoint file's modification date (ISO) as an estimate of
+    the training finish time; empty string if not available."""
+    if not path:
+        return ''
+    try:
+        import datetime
+        return datetime.datetime.fromtimestamp(os.path.getmtime(path)).strftime(
+            '%Y-%m-%d %H:%M')
+    except (OSError, ValueError):
+        return ''
+
+
 @app.route('/')
 def index():
     info = SERVICE.info() if SERVICE is not None else None
     checkpoints = pred_mod.list_checkpoints(MODELS_DIR)
-    return render_template('index.html', model_info=info,
-                           checkpoints=[os.path.relpath(p, MODELS_DIR)
-                                        for p in checkpoints],
-                           models_dir=MODELS_DIR)
+    return render_template(
+        'index.html', model_info=info,
+        checkpoints=[os.path.relpath(p, MODELS_DIR) for p in checkpoints],
+        models_dir=MODELS_DIR,
+        project=proj.PROJECT_INFO, reference=proj.REFERENCE,
+        model_train_date=(_model_train_date(SERVICE.model_path)
+                          if SERVICE and SERVICE.model_path else ''),
+        model_hash=pred_mod._short_model_id(SERVICE.model_path)
+        if SERVICE and SERVICE.model_path else '')
 
 
 @app.route('/models', methods=['GET'])
@@ -139,19 +187,44 @@ def predict():
     return jsonify({'ok': True, **_jsonable(result)})
 
 
+def _synthetic_signal(kind='normal', n=256 * 30):
+    """Generate a synthetic single-lead ECG-ish signal for quick demos.
+
+    kind: 'normal' (sinusoidal-ish regular), 'af' (irregular irregularity,
+    fibrillatory waves), 'noise' (predominantly noisy/artefact).
+    """
+    import numpy as np
+    t = np.arange(n) / pred_mod.TRAIN_FS
+    rng = np.random.default_rng(7)
+    base = 0.05 * np.sin(2 * np.pi * 1.2 * t)
+    base += 0.15 * np.sin(2 * np.pi * 1.3 * t).clip(min=0)
+    if kind == 'af':
+        # irregular RR + coarse fibrillatory waves (no clean P)
+        rr = 0.6 + 0.25 * np.sin(2 * np.pi * 0.35 * t)
+        base += 0.08 * np.sin(2 * np.pi * (5.0 + 1.5 * np.sin(2 * np.pi * 0.6 * t)) * t)
+        base += 0.06 * rng.normal(0, 1, n)
+        base *= 1.0 + 0.3 * rr
+    elif kind == 'noise':
+        base += 0.22 * rng.normal(0, 1, n)
+        base += 0.05 * np.sin(2 * np.pi * 50 * t)
+    else:
+        base += 0.02 * rng.normal(0, 1, n)
+    return (base + 0.0).astype(np.float32)
+
+
 @app.route('/example', methods=['POST'])
 def example():
-    """Generate a synthetic single-lead signal server-side and classify it,
-    so the 'Probar con ejemplo' button needs no file upload."""
+    """Generate a synthetic single-lead signal server-side and classify it.
+    `kind` selects the demo: normal | af | noise (default normal)."""
     import numpy as np
 
     if SERVICE is None:
         return jsonify({'ok': False, 'error': 'No hay modelo cargado.'}), 500
+    kind = (request.get_json(silent=True) or {}).get('kind', 'normal')
+    if kind not in ('normal', 'af', 'noise'):
+        kind = 'normal'
     n = 256 * 30
-    t = np.arange(n) / pred_mod.TRAIN_FS
-    base = 0.05 * np.sin(2 * np.pi * 1.2 * t)
-    base += 0.15 * np.sin(2 * np.pi * 1.3 * t).clip(min=0)
-    signal = (base + np.random.randn(n) * 0.02).astype(np.float32)
+    signal = _synthetic_signal(kind, n)
     try:
         result = SERVICE.predict_signal(pred_mod.TRAIN_FS, signal)
         result['plot'] = 'data:image/png;base64,' + SERVICE.render_plot(
@@ -165,6 +238,27 @@ def example():
     return jsonify({'ok': True, **_jsonable(result)})
 
 
+def _init_service(saved_dir='saved', model_path=None):
+    """Load (or reload) the PredictionService. Called by main() and by wsgi.py.
+
+    Returns the PredictionService or exits if no model is found.
+    """
+    global SERVICE, MODELS_DIR
+    MODELS_DIR = saved_dir
+    path = model_path or pred_mod.find_best_model(MODELS_DIR)
+    if not path:
+        log.error("No se encontró modelo. Entrena primero con "
+                  "`python ecg/train.py examples/cinc17/config.json -e cinc17` "
+                  "o pasa --model <checkpoint.pt>.")
+        sys.exit(1)
+    log.info("Cargando modelo: %s", path)
+    svc = pred_mod.PredictionService(path)
+    with SERVICE_LOCK:
+        SERVICE = svc
+    log.info("Clases: %s | Device: %s", svc.classes, svc.device)
+    return svc
+
+
 def main():
     global SERVICE, MODELS_DIR
     parser = argparse.ArgumentParser(description="ECG classification web app")
@@ -175,19 +269,7 @@ def main():
     parser.add_argument("--port", type=int, default=5000)
     args = parser.parse_args()
 
-    MODELS_DIR = args.saved
-    model_path = args.model
-    if not model_path:
-        model_path = pred_mod.find_best_model(MODELS_DIR)
-    if not model_path:
-        log.error("No se encontró modelo. Entrena primero con "
-                  "`python ecg/train.py examples/cinc17/config.json -e cinc17` "
-                  "o pasa --model <checkpoint.pt>.")
-        sys.exit(1)
-
-    log.info("Cargando modelo: %s", model_path)
-    SERVICE = pred_mod.PredictionService(model_path)
-    log.info("Clases: %s | Device: %s", SERVICE.classes, SERVICE.device)
+    _init_service(args.saved, args.model)
 
     # Run Flask threaded so switching models / concurrent requests do not block.
     app.run(host=args.host, port=args.port, debug=False, threaded=True)
