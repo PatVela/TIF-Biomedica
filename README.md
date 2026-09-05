@@ -11,8 +11,9 @@ El repositorio original está escrito en **Keras/TensorFlow (Python 2)**. Este p
 - **Réplica 1:1 de la red** del artículo (34 capas, 16 bloques residuales, pre-activación BatchNorm+ReLU, Dropout 0.2) portada a `torch.nn`.
 - **Pipeline de datos idéntico**: truncado a múltiplos de 256 muestras, normalización global, una predicción por cada 256 muestras.
 - **Entrenamiento fiel al original**: Adam con `clipnorm`, `ReduceLROnPlateau`, `EarlyStopping` y checkpoint por época.
-- **Evaluación** a nivel de registro e intervalo, con la **métrica oficial del challenge** (`Challenge-F1` sobre N/A/O) además de macro-F1.
+- **Evaluación** a nivel de registro e intervalo, con la **métrica oficial del challenge** (`Challenge-F1` sobre N/A/O) además de macro-F1. Exporta un `metrics.json` legible para la app.
 - **Aplicación web** (Flask + Plotly) con gráfico interactivo, selector de checkpoint, drag-and-drop y exportación de resultados.
+- **Detalle técnico** en la web: **tabla de métricas reales** (acc, macro-F1, weighted-F1, Challenge-F1 + precisión/recall/F1 por clase), **tabla de hiperparámetros vs. el artículo** (reproducibilidad) y clasificación por tramos **agrupada** en tabla.
 - **Re-muestreo automático**: cualquier señal de entrada se relocaliza a 300 Hz antes de inferir.
 - **PyTorch con CUDA** (soporta GPU) y detección automática de dispositivo.
 - Herramientas de datos sintéticos para pruebas rápidas sin dataset.
@@ -54,7 +55,7 @@ Entrada (B, 1, T)                     # B registros, 1 derivación, T muestras
 - **Entrada**: señal cruda de ECG (una derivación), sin características manuales ni metadatos de paciente.
 - **Bloques principales**: 16 bloques residuales de 2 capas convolucionales, con shortcut y padding `SAME`. La primera y la última capa se tratan de forma especial por la estructura de pre-activación.
 - **Salida**: una distribución softmax por cada **256 muestras** (≈0.85 s a 300 Hz); el factor de submuestreo temporal es 2⁸ = 256.
-- **Hiperparámetros** (`examples/cinc17/config.json`): `conv_filter_length=16`, `conv_num_filters_start=32`, `conv_dropout=0.2`, `conv_num_skip=2`, `conv_increase_channels_at=4`, `learning_rate=0.001`, `batch_size=16` (ver [Fidelidad](#fidelidad-respecto-al-artículo)).
+- **Hiperparámetros** (`examples/cinc17/config.json`): `conv_filter_length=16`, `conv_num_filters_start=32`, `conv_dropout=0.2`, `conv_num_skip=2`, `conv_increase_channels_at=4`, `learning_rate=0.001`, `batch_size=32` (ver [Fidelidad](#fidelidad-respecto-al-artículo)).
 
 > Parámetros del modelo: ~10.5 M.
 
@@ -108,7 +109,12 @@ El dataset **PhysioNet CinC 2017** está restringido (requiere cuenta y aceptar 
 Colócalos en `dataset2017/` (o `training2017/` + `REFERENCE-v3.csv`) y genera los conjuntos:
 
 ```bash
-python examples/cinc17/build_datasets.py --data_dir dataset2017/training2017 --label_file dataset2017/REFERENCE-v3.csv --out_dir examples/cinc17 --relative --stratify
+python examples/cinc17/build_datasets.py \
+  --data_dir   dataset2017/training2017 \
+  --label_file dataset2017/REFERENCE-v3.csv \
+  --out_dir    examples/cinc17 \
+  --relative            # rutas relativas (portable entre máquinas)
+  --stratify            # opcional: split proporcional a la clase
 ```
 
 Esto produce `examples/cinc17/train.json` y `dev.json` (formato JSONL, un objeto por línea con `ecg` y `labels`). Por defecto el split es aleatorio 90/10; usa `--stratify` para que las clases minoritarias (`A`, `~`) queden representadas en `dev` a la misma tasa que en `train`.
@@ -127,26 +133,34 @@ Los checkpoints se guardan **en cada época** en `saved/<experimento>/<timestamp
 Predicción por registro (voto mayoritario sobre los intervalos):
 
 ```bash
-$best = Get-ChildItem -Path saved -Recurse -Filter "*.pt" |
-  Sort-Object { [double]($_.BaseName -split "-")[0] } | Select-Object -First 1
-python -m ecg.predict examples/cinc17/dev.json $best.FullName
+python -m ecg.predict examples/cinc17/dev.json "saved/cinc17/<timestamp>/0.408-0.862-011-0.274-0.904.pt"
 ```
 
-Evaluación formal con métricas:
+Evaluación formal con métricas (impresión en consola + matriz de confusión):
 
 ```bash
 python examples/cinc17/evaluate.py --data_json examples/cinc17/dev.json --saved saved
 ```
 
+Para exportar también las **figuras (matriz de confusión, F1 por clase) y el `metrics.json`** que la app web lee en la pestaña *Detalle Técnico*:
+
+```bash
+python examples/cinc17/evaluate.py --data_json examples/cinc17/dev.json --saved saved \
+  --save_metrics_dir webapp/static/metrics
+```
+
+> La pestaña *Detalle Técnico* de la app muestra automáticamente la tabla de métricas cuando existe `webapp/static/metrics/metrics.json` (endpoint de diagnóstico en `GET /metrics`).
+
 ## Aplicación web
 
 Interfaz interactiva para clasificar señales de una sola derivación, con:
 
-- **Gráfico Plotly interactivo** (zoom/pan, tooltip por intervalo con clase + probabilidad + tiempo). El JS de Plotly está **embebido localmente**, sin CDN.
+- **Gráfico Plotly interactivo** (zoom/pan, tooltip, fondo tipo "papel milimétrico" con cuadrícula y escala adaptativa). El JS de Plotly está **embebido localmente**, sin CDN.
+- **Detalle Técnico**: tabla de **métricas de evaluación reales** (por registro y por clase), **hiperparámetros vs. el artículo**, y **clasificación por tramos agrupada** (filas consecutivas del mismo ritmo se consolidan).
 - **Selector de checkpoint** en la interfaz: cambia de modelo **sin reiniciar el servidor**.
 - **Botón "Probar con ejemplo"** (genera y clasifica una señal sin subir nada).
 - **Drag-and-drop** del archivo y campos de etiqueta real (comparación ✔/✘).
-- **Exportación** a CSV / JSON / PNG.
+- **Informe PDF real** que se descarga automáticamente (ReportLab), no un diálogo de impresión del navegador.
 - **Re-muestreo automático** a 300 Hz y aviso en pantalla si se sube a otra frecuencia.
 
 Acepta **CSV** (una derivación), **`.mat`**, **`.dat`** y **`.npy`**:
@@ -185,6 +199,72 @@ python -m ecg.train examples/cinc17/config_synthetic.json -e synth --epochs 2
 python examples/cinc17/evaluate.py --data_json examples/cinc17/synthetic/dev.json --saved saved_synthetic
 ```
 
+## Réplica paso a paso (de cero a los resultados)
+
+Secuencia completa de comandos para reproducir el experimento de CinC 2017, en orden, desde la raíz del proyecto (con el venv activado y CUDA visible).
+
+**1 · Instalación**
+
+```bash
+python -m venv venv
+.\venv\Scripts\Activate.ps1          # Windows (PowerShell)
+# source venv/bin/activate           # Linux/macOS
+pip install --upgrade pip
+pip install -r requirements.txt
+python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+# esperado → 2.14.0+cu130 True
+```
+
+**2 · Datos (CinC 2017, con acuerdo de uso)**
+
+Descarga `training2017.zip` y `REFERENCE-v3.csv` desde [physionet.org/content/challenge-2017/1.0.0/](https://physionet.org/content/challenge-2017/1.0.0/) y colócalos en `dataset2017/`. Luego:
+
+```bash
+python examples/cinc17/build_datasets.py \
+  --data_dir   dataset2017/training2017 \
+  --label_file dataset2017/REFERENCE-v3.csv \
+  --out_dir    examples/cinc17 \
+  --relative --stratify
+```
+
+Produce `examples/cinc17/train.json` y `dev.json`.
+
+**3 · Entrenamiento**
+
+```bash
+python -m ecg.train examples/cinc17/config.json -e cinc17
+```
+
+Los checkpoints se guardan en `saved/cinc17/<timestamp>/<val_loss>-<val_acc>-<epoch>-<loss>-<acc>.pt` (el mejor es el de menor `val_loss`).
+
+**4 · Inferencia (una-predicción-por-registro por voto mayoritario)**
+
+```bash
+python -m ecg.predict examples/cinc17/dev.json \
+  "saved/cinc17/<timestamp>/0.371-0.870-013-0.247-0.916.pt"
+```
+
+**5 · Evaluación formal + métricas reales para la web**
+
+```bash
+python examples/cinc17/evaluate.py --data_json examples/cinc17/dev.json --saved saved
+# exportar figuras + metrics.json (para la pestaña Detalle Técnico):
+python examples/cinc17/evaluate.py --data_json examples/cinc17/dev.json --saved saved \
+  --save_metrics_dir webapp/static/metrics
+```
+
+**6 · Aplicación web**
+
+```bash
+# desarrollo
+python webapp/app.py --saved saved --host 127.0.0.1 --port 5000
+# abre http://127.0.0.1:5000/
+# desde otro dispositivo / WSL2:
+python webapp/app.py --saved saved --host 0.0.0.0 --port 5000
+```
+
+Con el checkpoint real cargado, la pestaña **Detalle Técnico** muestra la tabla de métricas (Challenge-F1 ≈ **0.860**) y la tabla de hiperparámetros vs. el artículo.
+
 ## Fidelidad respecto al artículo
 
 ### Qué se reproduce exactamente
@@ -204,7 +284,7 @@ python examples/cinc17/evaluate.py --data_json examples/cinc17/synthetic/dev.jso
 
 - El dataset CinC 2017 usa **300 Hz** (no 200 Hz), por lo que un intervalo de 256 muestras representa ≈0.85 s (no ≈1.28 s).
 - El número de clases se deriva del vocabulario de los datos (`A, N, O, ~`, a veces `|`), en lugar de las 12 clases fijas del artículo.
-- `batch_size` difiere del repositorio original: el artículo usa **128**, `awni/ecg` usa **32**, y este proyecto usa **16** para adaptarse a una RTX 3050 Laptop de 4 GB. El resto de hiperparámetros coincide.
+- `batch_size` es **32**, igual que `awni/ecg` (el artículo usa 128 para su build con datos privados). El resto de hiperparámetros coincide.
 - **`dev.json` se usa para la selección de checkpoint (early stopping)**, por lo que evaluar sobre él introduce *leakage* de selección de modelo. Para una evaluación imparcial, descarga el **test set oficial** de PhysioNet y evalúa sobre `test.json`.
 
 ### Métricas comparables con el artículo
@@ -213,9 +293,19 @@ Métricas obtenidas sobre el `dev.json` local (sujetas a la limitación de la se
 
 | Métrica | Nivel registro | Nivel intervalo |
 |---|---|---|
-| Exactitud | 0.865 | 0.861 |
-| Macro-F1 (todas las clases) | 0.773 | 0.773 |
-| **Challenge-F1 (solo N/A/O, oficial)** | **0.845** | 0.846 |
+| Exactitud | 0.875 | 0.871 |
+| Macro-F1 (todas las clases) | 0.764 | 0.760 |
+| Weighted-F1 | 0.871 | 0.869 |
+| **Challenge-F1 (solo N/A/O, oficial)** | **0.860** | 0.856 |
+
+Reporte por clase (nivel registro, `n = 854`):
+
+| Clase | Precisión | Recall | F1 | n_real | n_pred |
+|---|---|---|---|---|---|
+| A (fibrilación auricular) | 0.800 | 0.895 | 0.845 | 76 | 85 |
+| N (ritmo normal) | 0.922 | 0.931 | 0.927 | 508 | 513 |
+| O (otro ritmo) | 0.810 | 0.810 | 0.810 | 242 | 242 |
+| ~ (ruido) | 0.714 | 0.357 | 0.476 | 28 | 14 |
 
 > El nivel intervalo es **solo un diagnóstico interno**: CinC 2017 carece de etiquetas reales por intervalo, por lo que el artículo reporta únicamente métrica a nivel de registro.
 
@@ -242,15 +332,17 @@ Métricas obtenidas sobre el `dev.json` local (sujetas a la limitación de la se
 │       ├── config.json            # hiperparámetros del artículo
 │       ├── config_synthetic.json  # config para datos sintéticos
 │       ├── build_datasets.py      # genera train.json / dev.json
-│       ├── evaluate.py            # evaluación formal (macro-F1, Challenge-F1, matriz)
+│       ├── evaluate.py            # evaluación formal + export metrics.json y figuras
 │       ├── make_synthetic.py      # señales sintéticas de prueba
 │       └── setup.sh
 ├── webapp/
-│   ├── app.py             # rutas Flask (/, /predict, /example, /models, /use_model)
+│   ├── app.py             # rutas Flask (/, /predict, /example, /models, /use_model, /metrics, /report.pdf)
 │   ├── prediction.py      # PredictionService + resampling + parser + PNG/Plotly
+│   ├── report_pdf.py      # informe PDF (ReportLab) que se descarga automáticamente
 │   ├── make_sample_csv.py # CSV de ejemplo
 │   ├── wsgi.py            # entrada WSGI para gunicorn/waitress (ECG_SAVED/ECG_MODEL)
 │   ├── templates/index.html
+│   ├── static/metrics/    # metrics.json + figuras exportadas por evaluate.py
 │   └── static/            # style.css, app.js, plotly.min.js (embebido)
 ├── Procfile                       # despliegue PaaS (gunicorn)
 ├── requirements.txt

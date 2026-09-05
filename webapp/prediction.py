@@ -84,6 +84,7 @@ class PredictionService:
         self.classes = ckpt.get('classes') or (self.preproc.classes if self.preproc
                                                else None)
         config = ckpt.get('config', {}) or {}
+        self.config = config
         num_cat = len(self.classes) if self.classes else int(
             config.get('num_categories', 5))
 
@@ -97,6 +98,8 @@ class PredictionService:
             'val_loss': ckpt.get('val_loss'),
             'val_acc': ckpt.get('val_acc'),
             'epoch': ckpt.get('epoch'),
+            'train_fs': TRAIN_FS,
+            'step': STEP,
         }
         self.class_to_desc = {
             'N': 'Normal',
@@ -112,7 +115,9 @@ class PredictionService:
             'classes': list(self.classes),
             'device': str(self.device),
             'train_fs': TRAIN_FS,
+            'step': STEP,
             'meta': self.meta,
+            'config': dict(self.config),
             'class_desc': {c: self.class_to_desc.get(c, c) for c in self.classes},
         }
 

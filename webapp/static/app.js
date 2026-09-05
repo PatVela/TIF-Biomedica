@@ -41,12 +41,13 @@ const I18N = {
     "det.val": "Fe del entrenamiento (val)",
     "det.acc": "exactitud", "det.loss": "pérdida",
     "det.arch": "Arquitectura",
-    "det.archVal": "CNN profunda (Hannun et al., Nature Medicine 2019) · 34 capas residuales / 1.3 M parámetros",
     "det.dataset": "Conjunto de datos",
-    "det.datasetVal": "PhysioNet CinC2017 · ECG de una sola derivación · 300 Hz · segmentos de 256 muestras",
     "det.trained": "Entrenado",
     "det.model": "Ficha técnica del modelo",
     "confidence": "Confianza media del ritmo predominante",
+    "iv.tramo": "Tramo", "iv.tiempo": "Tiempo (s)", "iv.ritmo": "Ritmo",
+    "iv.confianza": "Confianza", "iv.desc": "Interpretación",
+    "iv.listTitle": "Clasificación por tramos",
     "methodology": "Enfoque: la señal se divide en segmentos de 256 muestras (a 300 Hz), se normaliza con la media/desviación global del conjunto de entrenamiento y se clasifica con una red neuronal convolucional profunda (réplica de Hannun et al., Nature Medicine 2019) entrenada sobre PhysioNet CinC2017. Cada segmento recibe una clase (normal, fibrilación auricular, otro ritmo, ruido) y se combinan para dar el ritmo predominante del registro.",
     "footer.author": "Autor:", "footer.advisor": "Asesor:",
     "footer.model": "Modelo", "footer.refs": "Ref.:",
@@ -96,12 +97,13 @@ const I18N = {
     "det.val": "Training fit (val)",
     "det.acc": "accuracy", "det.loss": "loss",
     "det.arch": "Architecture",
-    "det.archVal": "Deep CNN (Hannun et al., Nature Medicine 2019) · 34 residual layers / 1.3 M params",
     "det.dataset": "Dataset",
-    "det.datasetVal": "PhysioNet CinC2017 · single-lead ECG · 300 Hz · 256-sample segments",
     "det.trained": "Trained",
     "det.model": "Model technical sheet",
     "confidence": "Mean confidence of the dominant rhythm",
+    "iv.tramo": "Segment", "iv.tiempo": "Time (s)", "iv.ritmo": "Rhythm",
+    "iv.confianza": "Confidence", "iv.desc": "Interpretation",
+    "iv.listTitle": "Segment classification",
     "methodology": "Approach: the signal is split into 256-sample segments (at 300 Hz), normalised with the global training mean/std, and classified by a deep convolutional neural network (replica of Hannun et al., Nature Medicine 2019) trained on PhysioNet CinC2017. Each segment gets a class (normal, atrial fibrillation, other, noise) and they are combined into the record's dominant rhythm.",
     "footer.author": "Author:", "footer.advisor": "Advisor:",
     "footer.model": "Model", "footer.refs": "Ref.:",
@@ -132,6 +134,21 @@ function cInfo(lbl) { const c = CLASS_INFO[lbl] || {}; return (c[LANG] || c.es |
 function cColor(lbl) { return (CLASS_INFO[lbl] || {}).color || "#9467bd"; }
 
 // ============================================================ state =======
+// "Nice number" step: rounds a raw step up to 1/2/5 × 10^k so Plotly renders a
+// clean handful of axis ticks/gridlines instead of thousands (which stacked
+// overlapping tick labels into the solid "black bar" seen along the Y axis).
+function niceStep(range, targetTicks) {
+  const rough = range / Math.max(1, targetTicks);
+  const exp = Math.floor(Math.log10(rough));
+  const frac = rough / Math.pow(10, exp);
+  let nice;
+  if (frac < 1.5) nice = 1;
+  else if (frac < 3) nice = 2;
+  else if (frac < 7) nice = 5;
+  else nice = 10;
+  return nice * Math.pow(10, exp);
+}
+
 const $ = (id) => document.getElementById(id);
 const dropzone = $("dropzone"), fileInput = $("file"), btnClassify = $("btnClassify");
 const statusEl = $("status");
@@ -185,6 +202,10 @@ function updateThemeIcon() {
 function goTo(sec) {
   document.querySelectorAll(".nav-link").forEach(b => b.classList.toggle("active", b.dataset.sec === sec));
   ["upload", "vis", "det"].forEach(s => { const el = $("sec-" + s); if (el) el.hidden = (s !== sec); });
+  // When Resultado becomes visible, make sure the ECG fills the real width.
+  if (sec === "vis" && lastResult && typeof Plotly !== "undefined") {
+    requestAnimationFrame(() => { try { Plotly.Plots.resize(plotDiv); } catch (e) {} });
+  }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 document.querySelectorAll(".nav-link").forEach(b => b.addEventListener("click", () => goTo(b.dataset.sec)));
@@ -220,6 +241,7 @@ function postFile(channel) {
   fd.append("file", currentFile, currentFile.name);
   if (channel !== undefined && channel !== null) fd.append("channel", channel);
   if (trueLabelInput.value.trim()) fd.append("label", normalizeLabel(trueLabelInput.value.trim()));
+  // NOTE: no auto-navigation here; stay on "Cargar" while it processes.
   return fetch("/predict", { method: "POST", body: fd })
     .then(r => r.json())
     .then(data => {
@@ -230,7 +252,7 @@ function postFile(channel) {
       return data;
     })
     .catch(err => { setStatus(t("err.network") + err.message, "err"); return null; })
-    .finally(() => { skel.hidden = true; });
+    .finally(() => { skel.hidden = true; setLoading(false); });   // always re-enable button
 }
 btnClassify.addEventListener("click", () => {
   if (!currentFile) { setStatus(t("file.select"), "err"); return; }
@@ -262,7 +284,6 @@ $("leadsContinue").addEventListener("click", () => {
 async function runExample(kind) {
   const cards = document.querySelectorAll(".example-card");
   cards.forEach(c => c.disabled = true);
-  skel.hidden = false; visEmpty.hidden = true; visContent.hidden = false;
   setStatus(t("loading"), "loading");
   try {
     const resp = await fetch("/example", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind }) });
@@ -286,16 +307,17 @@ function render(data) {
   renderNotice(data); renderDiagnosis(data); renderTraffic(data); renderSummary(data);
   renderGroundTruth(data); renderIntervals(data); renderReport(data);
 
-  // Show the Result section BEFORE drawing the plot, so Plotly measures the
-  // real (visible) container width and fills 100% of it.
-  goTo("vis");
+  // No auto-navigation here: keep the user where they are. The Result section
+  // holds the latest analysis; it is resized when it becomes visible.
   renderPlotly(data);
 }
 
 function renderNotice(data) {
   const n = $("notice");
-  if (data.resampled) { n.style.display = "block"; n.textContent = t("resampled", data.orig_fs, data.applied_fs); }
-  else n.style.display = "none";
+  let msg = [];
+  if (data.resampled) msg.push(t("resampled", data.orig_fs, data.applied_fs));
+  if (msg.length) { n.style.display = "block"; n.textContent = msg.join(" · "); }
+  else { n.style.display = "none"; n.textContent = ""; }
 }
 function dominantConfidence(data) {
   const lbl = data.dominant;
@@ -346,14 +368,54 @@ function renderPlotly(data) {
   const p = data.plotly;
   if (!p || typeof Plotly === "undefined") { plotDiv.innerHTML = `<img class="plot" src="${data.plot}" alt="ECG">`; return; }
   const dark = isDark();
-  // Proper clinical "millimetre-paper" look: white/warm bg, a fine minor grid
-  // (1mm = 0.04s / 0.1mV) and a slightly stronger major grid (5mm = 0.2s / 0.5mV).
   const bg = dark ? "#12151b" : "#fdfdfb";
   const gridMinor = dark ? "#2a3543" : "#f3dedd";
   const gridMajor = dark ? "#3c4a5c" : "#e6bab8";
   const gridEdge = dark ? "#33405a" : "#c9d4e2";
   const tickColor = dark ? "#c6d0e0" : "#35465c";
   const traceColor = "#111827";
+
+  const traces = p.traces.map(tr => ({ ...tr, line: { ...(tr.line||{}), color: traceColor, width: 1 } }));
+
+  // ---- Compute robust view ranges FIRST (view only; signal never cropped).
+  // A MAD-based Y range tolerates spikes/artefacts without blowing the axis
+  // out to the raw extremes, so the real ECG stays legible. The X range comes
+  // from the plotted time span so ticks are always sparse and clean.
+  let yMin = null, yMax = null, xMin = null, xMax = null;
+  try {
+    let ys = [];
+    traces.forEach(tr => {
+      if (tr.y && Array.isArray(tr.y)) ys = ys.concat(tr.y);
+      if (tr.x && Array.isArray(tr.x) && tr.x.length) {
+        xMin = xMin === null ? tr.x[0] : Math.min(xMin, tr.x[0]);
+        xMax = xMax === null ? tr.x[tr.x.length - 1] : Math.max(xMax, tr.x[tr.x.length - 1]);
+      }
+    });
+    if (ys.length > 20) {
+      const n = ys.length;
+      const sorted = ys.slice().sort((a, b) => a - b);
+      const med = sorted[Math.floor(n * 0.5)];
+      const dev = ys.map(v => Math.abs(v - med)).sort((a, b) => a - b);
+      const sigma = 1.4826 * dev[Math.floor(n * 0.5)] || 1;
+      const pad = 0.06 * (12 * sigma);
+      yMin = med - 6 * sigma - pad;
+      yMax = med + 6 * sigma + pad;
+    } else {
+      yMin = Math.min(...ys); yMax = Math.max(...ys);
+    }
+  } catch (e) { yMin = null; yMax = null; }
+
+  // ---- Derive ADAPTIVE grid/tick steps from each axis span, so Plotly draws
+  // a clean handful of divisions (and a legible number of tick labels) no
+  // matter the amplitude scale. The old fixed dtick (0.5/0.1 mV) produced
+  // thousands of overlapping Y labels == the solid black bar. View only.
+  const ySpan = (yMax !== null) ? (yMax - yMin) : 1;
+  const yStep = niceStep(Math.abs(ySpan), 7);           // ~7 major divisions
+  const yMinor = yStep / 5;
+  const xSpan = (xMin !== null && xMax !== null) ? Math.abs(xMax - xMin) : 0;
+  const xStep = xSpan > 0 ? niceStep(xSpan, 7) : 1;
+  const xMinor = xStep / 5;
+
   const layout = {
     title: { text: LANG==="es"?"Señal de ECG con clasificación por tramos":"ECG signal with segment classification", font: { size: 15, color: getComputedStyle(document.body).color }, x: 0.01 },
     autosize: true,
@@ -361,32 +423,89 @@ function renderPlotly(data) {
       title: LANG==="es"?"tiempo (s)":"time (s)",
       gridcolor: gridMajor, gridwidth: 1, showgrid: true, zeroline: false,
       showline: true, linecolor: gridEdge, mirror: true,
-      dtick: 1, tickfont: { size: 11, color: tickColor }, titlefont: { size: 12 },
+      dtick: xStep, tickfont: { size: 11, color: tickColor }, titlefont: { size: 12 },
       automargin: true,
-      minor: { showgrid: true, dtick: 0.2, gridcolor: gridMinor, gridwidth: 1 },
+      // The dark bar at the very start was Plotly's native Range Slider
+      // control. Disable it so the interactive trace is clean (and lighter).
+      rangeslider: { visible: false },
+      minor: { showgrid: true, dtick: xMinor, gridcolor: gridMinor, gridwidth: 1 },
     },
     yaxis: {
       title: LANG==="es"?"Amplitud (mV)":"Amplitude (mV)",
       gridcolor: gridMajor, gridwidth: 1, showgrid: true, zeroline: false,
       showline: true, linecolor: gridEdge, mirror: true,
-      dtick: 0.5, tickfont: { size: 11, color: tickColor }, titlefont: { size: 12 },
+      dtick: yStep, tickfont: { size: 11, color: tickColor }, titlefont: { size: 12 },
       automargin: true,
-      minor: { showgrid: true, dtick: 0.1, gridcolor: gridMinor, gridwidth: 1 },
+      minor: { showgrid: true, dtick: yMinor, gridcolor: gridMinor, gridwidth: 1 },
     },
     shapes: p.shapes, showlegend: false,
     margin: { l: 58, r: 20, t: 52, b: 48 }, hovermode: "x",
     paper_bgcolor: bg, plot_bgcolor: bg,
     font: { color: getComputedStyle(document.body).color },
   };
-  const traces = p.traces.map(tr => ({ ...tr, line: { ...(tr.line||{}), color: traceColor, width: 1 } }));
+  if (yMin !== null && yMax !== null) { layout.yaxis.range = [yMin, yMax]; layout.yaxis.rangemode = "normal"; }
+  if (xMin !== null && xMax !== null) { layout.xaxis.range = [xMin, xMax]; layout.xaxis.rangemode = "normal"; }
   Plotly.react(plotDiv, traces, layout, { responsive: true, displaylogo: false });
   requestAnimationFrame(() => { try { Plotly.Plots.resize(plotDiv); } catch (e) {} });
 }
 function renderIntervals(data) {
-  intervalList.innerHTML = "";
-  (data.per_interval || []).forEach(iv => {
-    intervalList.innerHTML += `<p class="iv"> #${iv.idx} · ${cInfo(iv.label).name} · ${LANG==="es"?"confianza":"confidence"} ${Math.round(iv.prob*100)}% · t≈${iv.start_ms} ms</p>`;
+  const ivs = data.per_interval || [];
+  const seg = (data.plotly && data.plotly.interval_s) ? data.plotly.interval_s : ((data.applied_fs||0) ? 256/(data.applied_fs) : 0.85);
+  if (!ivs.length) { intervalList.innerHTML = ""; return; }
+
+  // ---- mini summary per class (how many segments, % of the window) ----
+  const byLabel = {};
+  ivs.forEach(iv => { (byLabel[iv.label] = byLabel[iv.label] || []).push(iv); });
+  const total = ivs.length;
+  let chips = Object.keys(byLabel).map(lbl => {
+    const arr = byLabel[lbl], c = cColor(lbl), pct = (100 * arr.length / total).toFixed(1);
+    return `<span class="iv-chip" style="--c:${c}"><span class="dot" style="background:${c}"></span>${cInfo(lbl).name} · ${arr.length} (${pct}%)</span>`;
+  }).join("");
+
+  // ---- collapse consecutive same-rhythm runs into one row ----
+  let rows = [];
+  let cur = null;
+  ivs.forEach(iv => {
+    if (cur && cur.label === iv.label) { cur.items.push(iv); return; }
+    if (cur) rows.push(cur);
+    cur = { label: iv.label, items: [iv] };
   });
+  if (cur) rows.push(cur);
+
+  let html = rows.map(run => {
+    const first = run.items[0], last = run.items[run.items.length - 1];
+    const info = cInfo(run.label), color = cColor(run.label);
+    const t0 = first.idx * seg, t1 = (last.idx + 1) * seg;
+    const n = run.items.length;
+    const avg = run.items.reduce((a, iv) => a + (iv.prob || 0), 0) / n;
+    const prob = Math.round(avg * 100);
+    const idxLbl = n > 1 ? `${first.idx}–${last.idx}` : `${first.idx}`;
+    return `<tr>
+      <td class="iv-idx">${idxLbl}</td>
+      <td class="iv-time">${t0.toFixed(2)} – ${t1.toFixed(2)}</td>
+      <td class="iv-ritmo"><span class="iv-dot" style="background:${color}"></span>
+        <span class="iv-name" style="color:${color}">${info.name}</span>
+        ${n > 1 ? `<span class="iv-count">×${n}</span>` : ""}</td>
+      <td class="iv-conf">
+        <span class="iv-bar"><span class="iv-fill" style="width:${prob}%;background:${color}"></span></span>
+        <span class="iv-pct">${prob}%</span></td>
+      <td class="iv-desc">${info.desc}</td>
+    </tr>`;
+  }).join("");
+
+  intervalList.innerHTML = `
+    <h3 class="sec-title"><span class="sec-tag">${t("iv.listTitle")}</span></h3>
+    <div class="iv-chips">${chips}</div>
+    <div class="iv-scroll">
+      <table class="iv-table">
+        <thead><tr>
+          <th>${t("iv.tramo")}</th><th>${t("iv.tiempo")}</th>
+          <th>${t("iv.ritmo")}</th><th>${t("iv.confianza")}</th>
+          <th>${t("iv.desc")}</th>
+        </tr></thead>
+        <tbody>${html}</tbody>
+      </table>
+    </div>`;
 }
 function renderReport(data) {
   const info = cInfo(data.dominant);

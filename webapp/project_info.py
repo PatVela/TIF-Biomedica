@@ -22,13 +22,13 @@ PROJECT_INFO = {
 
     # ---------------------- Autoría ----------------------
     # Deja los campos vacíos si aún no los tienes; la app los omite.
-    "autor": "Diaz Velarde Juergen",                      # ej. "Juerg P. Velásquez"
-    "autor_email": "jdiazve@unsa.edu.pe",                # ej. "jvelasquez@unsa.edu.pe"
-    "asesor": "Tu Viejo Echaiz",                     # ej. "Ing. María Gómez, M.Sc."
-    "asesor_cargo": "Docente",               # ej. "Docente del curso · UNSA"
+    "autor": "",                      # ej. "Juerg P. Velásquez"
+    "autor_email": "",                # ej. "jvelasquez@unsa.edu.pe"
+    "asesor": "",                     # ej. "Ing. María Gómez, M.Sc."
+    "asesor_cargo": "",               # ej. "Docente del curso · UNSA"
 
     # ---------------------- Sobre el sistema ----------------------
-    "version": "5.3",                 # versión mostrada de la aplicación
+    "version": "2.1",                 # versión mostrada de la aplicación
     "descripcion_corta": ("Asistente automático de lectura de ECG de una sola "
                           "derivación basado en deep learning, desarrollado "
                           "con fines de investigación académica."),

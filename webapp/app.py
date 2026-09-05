@@ -102,10 +102,36 @@ def _model_train_date(path):
         return ''
 
 
+def _load_metrics_json():
+    path = os.path.join(os.path.dirname(__file__), 'static', 'metrics', 'metrics.json')
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+@app.route('/metrics', methods=['GET'])
+def metrics_status():
+    path = os.path.join(os.path.dirname(__file__), 'static', 'metrics', 'metrics.json')
+    return jsonify({
+        'file_found': os.path.exists(path),
+        'path': path,
+        'metrics': _load_metrics_json(),
+    })
+
 @app.route('/')
 def index():
     info = SERVICE.info() if SERVICE is not None else None
     checkpoints = pred_mod.list_checkpoints(MODELS_DIR)
+    # Number of trainable parameters in the loaded model (for the arch sheet).
+    n_params = None
+    if SERVICE is not None:
+        try:
+            n_params = sum(p.numel() for p in SERVICE.model.parameters())
+        except Exception:
+            n_params = None
     return render_template(
         'index.html', model_info=info,
         checkpoints=[os.path.relpath(p, MODELS_DIR) for p in checkpoints],
@@ -114,7 +140,9 @@ def index():
         model_train_date=(_model_train_date(SERVICE.model_path)
                           if SERVICE and SERVICE.model_path else ''),
         model_hash=pred_mod._short_model_id(SERVICE.model_path)
-        if SERVICE and SERVICE.model_path else '')
+        if SERVICE and SERVICE.model_path else '',
+        model_n_params=n_params,
+        metrics=_load_metrics_json())
 
 
 @app.route('/models', methods=['GET'])
@@ -187,6 +215,9 @@ def predict():
         else:
             signal = mat[0]
 
+        # NOTE: no start-trimming. The dark bar at the very start of the trace
+        # is Plotly's native Range Slider control (a UI element), NOT signal
+        # data, so the signal is analysed exactly as recorded.
         result = SERVICE.predict_signal(fs, signal)
         result['n_channels'] = n_channels
         result['channel'] = (selected_channel + 1) if selected_channel is not None else 1

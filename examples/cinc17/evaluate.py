@@ -136,6 +136,50 @@ def report(y_true, y_pred, labels, name):
     return acc, macro_f1(per_class)
 
 
+def collect_metrics(y_true, y_pred, labels):
+    """Return a plain dict (JSON-serialisable) of headline + per-class metrics."""
+    cm = confusion_matrix(y_true, y_pred, labels)
+    per_class = per_class_metrics(cm, labels)
+    import collections as _c
+    counts_true = _c.Counter(y_true)
+    counts_pred = _c.Counter(y_pred)
+    return {
+        'labels': list(labels),
+        'accuracy': round(float(accuracy(y_true, y_pred)), 4),
+        'macro_f1': round(macro_f1(per_class), 4),
+        'weighted_f1': round(weighted_f1(per_class, y_true), 4),
+        'challenge_f1': round(challenge_f1(per_class), 4),
+        'n': int(len(y_true)),
+        'per_class': {
+            c: {'precision': round(per_class[c]['precision'], 4),
+                'recall': round(per_class[c]['recall'], 4),
+                'f1': round(per_class[c]['f1'], 4),
+                'tp': per_class[c]['tp'],
+                'n_true': counts_true.get(c, 0),
+                'n_pred': counts_pred.get(c, 0)}
+            for c in labels
+        },
+        'confusion': cm,
+    }
+
+
+def save_metrics_json(metrics, out_dir, data_json, model_path, meta):
+    """Write a machine-readable metrics.json so the webapp 'Detalle técnico'
+    tab can render the real evaluation numbers (and their figures)."""
+    import datetime
+    os.makedirs(out_dir, exist_ok=True)
+    record = dict(metrics)
+    record['data_json'] = os.path.abspath(data_json)
+    record['model_path'] = os.path.abspath(model_path)
+    record['meta'] = meta
+    record['generated_at'] = datetime.datetime.now().isoformat(timespec='seconds')
+    path = os.path.join(out_dir, 'metrics.json')
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(record, f, indent=2, ensure_ascii=False)
+    print("Métricas (JSON) guardadas en:", path)
+    return path
+
+
 def save_metrics_figures(y_true, y_pred, labels, out_dir, title):
     """Export the confusion matrix and per-class F1 as PNG figures.
 
@@ -235,6 +279,14 @@ def main():
     if args.save_metrics_dir:
         save_metrics_figures(true_records, y_pred_records, labels,
                              args.save_metrics_dir, "Nivel registro")
+        rec_metrics = collect_metrics(true_records, y_pred_records, labels)
+        meta = {
+            'n_records': int(len(true_records)),
+            'level_notes': ('La métrica oficial del paper/CinC2017 es el '
+                            'Challenge-F1 (N/A/O) a nivel de registro.'),
+        }
+        save_metrics_json(rec_metrics, args.save_metrics_dir, args.data_json,
+                          model_path, meta)
     if args.level in ("record", "both"):
         report(true_records, y_pred_records, labels, "NIVEL REGISTRO")
     if args.level in ("interval", "both"):

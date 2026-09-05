@@ -200,22 +200,75 @@
         <h3 class="sec-title"><span class="sec-tag" data-i18n="det.model">Ficha técnica del modelo</span></h3>
         <table class="model-table">
           <tbody>
-            <tr><th data-i18n="det.arch">Arquitectura</th><td data-i18n="det.archVal">CNN profunda (Hannun et al., Nature Medicine 2019) · 34 capas residuales / 1.3 M parámetros</td></tr>
-            <tr><th data-i18n="det.dataset">Conjunto de datos</th><td data-i18n="det.datasetVal">PhysioNet CinC2017 · ECG de una sola derivación · 300 Hz · segmentos de 256 muestras</td></tr>
+            <tr><th data-i18n="det.arch">Arquitectura</th><td>CNN profunda (Hannun et al., Nature Medicine 2019) · 34 capas residuales · {{ model_n_params if model_n_params is not none else '—' }} parámetros</td></tr>
+            <tr><th data-i18n="det.dataset">Conjunto de datos</th><td>PhysioNet CinC2017 · ECG de una sola derivación · {{ model_info.train_fs if model_info else '300' }} Hz · segmentos de {{ model_info.step if model_info else '256' }} muestras</td></tr>
             <tr><th data-i18n="det.classes">Ritmos reconocidos</th><td>{{ (model_info.classes) if model_info else '—' }}</td></tr>
             <tr><th data-i18n="det.val">Fe del entrenamiento (val)</th><td>
               {% if model_info and model_info.meta %}
-                <span data-i18n="det.acc">exactitud</span> {{ '%.1f' % (model_info.meta.val_acc*100) }}% ·
-                <span data-i18n="det.loss">pérdida</span> {{ '%.3f' % model_info.meta.val_loss }} (época {{ model_info.meta.epoch }})
+                {% if model_info.meta.val_acc is not none %}<span data-i18n="det.acc">exactitud</span> {{ '%.1f' % (model_info.meta.val_acc*100) }}%<br>{% endif %}
+                {% if model_info.meta.val_loss is not none %}<span data-i18n="det.loss">pérdida</span> {{ '%.3f' % model_info.meta.val_loss }}{% if model_info.meta.epoch is not none %} (época {{ model_info.meta.epoch }}){% endif %}{% endif %}
               {% else %}—{% endif %}</td></tr>
             <tr><th data-i18n="det.trained">Entrenado</th><td>{{ model_train_date or '—' }}{% if model_hash %} · id <code>{{ model_hash }}</code>{% endif %}</td></tr>
           </tbody>
         </table>
 
+        {% if metrics %}
+        <!-- ===== Métricas reales de evaluación (exportadas por evaluate.py) ===== -->
+        <h3 class="sec-title"><span class="sec-tag">Métricas de evaluación (test/dev real)</span></h3>
+        <p class="hint muted">Nivel de registro (una predicción por registro, modo sobre sus tramos) · {{ metrics.n }} registros · generado {{ metrics.generated_at }}.</p>
+        <table class="model-table metric-table">
+          <tbody>
+            <tr><th>Exactitud (accuracy)</th><td>{{ '%.2f' % (metrics.accuracy*100) }}%</td></tr>
+            <tr><th>Macro-F1 (todas las clases)</th><td>{{ '%.3f' % metrics.macro_f1 }}</td></tr>
+            <tr><th>Weighted-F1</th><td>{{ '%.3f' % metrics.weighted_f1 }}</td></tr>
+            <tr><th>Challenge-F1 (N/A/O) <span class="hint muted">— métrica oficial del paper/CinC2017</span></th><td><strong>{{ '%.3f' % metrics.challenge_f1 }}</strong></td></tr>
+          </tbody>
+        </table>
+        <table class="iv-table per-class-table">
+          <thead><tr><th>Clase</th><th>Precisión</th><th>Recall</th><th>F1</th><th>n real</th><th>n pred</th></tr></thead>
+          <tbody>
+            {% for c in metrics.labels %}
+            {% set pc = metrics.per_class[c] %}
+            <tr>
+              <td class="per-class-name">{{ c }}</td>
+              <td>{{ '%.3f' % pc.precision }}</td>
+              <td>{{ '%.3f' % pc.recall }}</td>
+              <td><strong>{{ '%.3f' % pc.f1 }}</strong></td>
+              <td>{{ pc.n_true }}</td>
+              <td>{{ pc.n_pred }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="hint muted">Aún no hay métricas de evaluación. Ejecuta <code>python examples/cinc17/evaluate.py --data_json &lt;dev.json&gt; --saved saved --save_metrics_dir webapp/static/metrics</code> para calcular y mostrar aquí los resultados reales (accesibilidad, macro-F1 y F1 oficial CinC2017).</p>
+        {% endif %}
+
+        <!-- ===== Reproducibilidad: hiperparámetros vs. paper ===== -->
+        <h3 class="sec-title"><span class="sec-tag">Hiperparámetros vs. paper (reproducibilidad)</span></h3>
+        {% set cfg = model_info.config if model_info and model_info.config else {} %}
+        <table class="model-table">
+          <tbody>
+            <tr><th>conv_subsample_lengths</th><td><code>{{ cfg.get('conv_subsample_lengths', '[1, 2] × 8') }}</code> ≡ paper <code>[1, 2] × 8</code></td></tr>
+            <tr><th>conv_filter_length</th><td><code>{{ cfg.get('conv_filter_length', 16) }}</code></td></tr>
+            <tr><th>conv_num_filters_start</th><td><code>{{ cfg.get('conv_num_filters_start', 32) }}</code></td></tr>
+            <tr><th>conv_init</th><td><code>{{ cfg.get('conv_init', 'he_normal') }}</code></td></tr>
+            <tr><th>conv_activation</th><td><code>{{ cfg.get('conv_activation', 'relu') }}</code></td></tr>
+            <tr><th>conv_dropout</th><td><code>{{ cfg.get('conv_dropout', 0.2) }}</code></td></tr>
+            <tr><th>conv_num_skip</th><td><code>{{ cfg.get('conv_num_skip', 2) }}</code></td></tr>
+            <tr><th>conv_increase_channels_at</th><td><code>{{ cfg.get('conv_increase_channels_at', 4) }}</code></td></tr>
+            <tr><th>learning_rate</th><td><code>{{ cfg.get('learning_rate', 0.001) }}</code></td></tr>
+            <tr><th>batch_size</th><td><code>{{ cfg.get('batch_size', 32) }}</code></td></tr>
+            <tr><th>STEP (tamaño de segmento)</th><td><code>{{ model_info.step if model_info else 256 }}</code></td></tr>
+            <tr><th>Frecuencia de muestreo</th><td><code>{{ model_info.train_fs if model_info else 300 }}</code> Hz</td></tr>
+            <tr><th>Normalización</th><td>media / desviación global del conjunto de entrenamiento; padding por lote</td></tr>
+          </tbody>
+        </table>
+
         <div id="metricsBox" class="metrics" hidden>
-          <h3 class="sec-title"><span class="sec-tag">Métricas de validación</span></h3>
+          <h3 class="sec-title"><span class="sec-tag">Figuras de validación</span></h3>
           <div class="metrics-grid">
-            <figure><img src="/static/metrics/confusion_matrix.png" alt="Matriz de confusión"><figcaption>Matriz de confusión</figcaption></figure>
+            <figure><img src="/static/metrics/confusion_matrix.png" alt="Matriz de confusión"><figcaption>Matriz de confusión (nivel registro)</figcaption></figure>
             <figure><img src="/static/metrics/f1_per_class.png" alt="F1 por clase"><figcaption>F1 por clase</figcaption></figure>
           </div>
         </div>
@@ -250,5 +303,5 @@
 
 <script src="{{ url_for('static', filename='plotly.min.js') }}"></script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a361a6e71aea1fd8',t:'MTc4ODU3Mzc0OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
