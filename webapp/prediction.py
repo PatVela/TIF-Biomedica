@@ -321,22 +321,82 @@ def parse_ecg_csv(text, default_fs=TRAIN_FS):
     return float(fs), signal
 
 
-def load_uploaded_file(path, filename):
-    """Load a CSV / .mat / .npy / .dat (format-212) upload into (fs, signal).
+_LEAD_NAMES_12 = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF',
+                  'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
 
-    Returns (fs, signal_1d). For .mat/.dat the sampling rate may be unavailable,
-    so it defaults to TRAIN_FS (the app announces this).
+
+def _to_2d(arr):
+    """Normalise an array to a (channels, samples) matrix."""
+    arr = np.asarray(arr, dtype=np.float32)
+    if arr.ndim == 1:
+        return arr[None, :]
+    if arr.ndim == 2:
+        r, c = arr.shape
+        # standard multi-lead layout is (leads, samples); transpose if samples
+        # is the smaller axis and looks like the 'leads' axis.
+        if r <= 12 and r <= c and (r > 1 or c > 1):
+            return arr
+        if c <= 12 and c <= r:
+            return arr.T
+        return arr                                        # assume rows = leads
+    # 3D or more: flatten trailing dims into samples, keep first as channels
+    return arr.reshape(arr.shape[0], -1)
+
+
+def _channel_names(n):
+    if n <= 12:
+        return list(_LEAD_NAMES_12[:n])
+    return ['Derivación {}'.format(i + 1) for i in range(n)]
+
+
+def _signal_info(mat, fs):
+    """Build a reusable description of a loaded signal matrix."""
+    mat = _to_2d(mat)
+    n = mat.shape[0]
+    return {'fs': float(fs), 'mat': mat, 'n_channels': n,
+            'names': _channel_names(n)}
+
+
+def select_channel(mat, index):
+    """Return the 1-D signal for channel `index` (0-based)."""
+    mat = _to_2d(mat)
+    index = int(index)
+    if index < 0 or index >= mat.shape[0]:
+        raise ValueError("Canal fuera de rango (0..{})".format(mat.shape[0] - 1))
+    return mat[index]
+
+
+def load_signal(path, filename):
+    """Load a CSV / .mat / .npy / .dat (format-212) upload.
+
+    Returns a dict {fs, mat (channels x samples), n_channels, names}. It NEVER
+    squeezes blindly, so multi-lead recordings are preserved for channel
+    selection. For .mat/.dat the sampling rate may be unavailable, so it
+    defaults to TRAIN_FS (the app announces this).
     """
     ext = os.path.splitext(filename)[1].lower()
     if ext in ('.csv', ''):
         with open(path, 'r', encoding='utf-8', errors='replace') as f:
-            return parse_ecg_csv(f.read())
-    elif ext == '.npy':
-        sig = np.load(path).astype(np.float32).squeeze()
-        return float(TRAIN_FS), sig
-    else:  # .mat / .dat (single-lead)
-        sig = load.load_ecg(os.path.abspath(path))
-        return float(TRAIN_FS), np.asarray(sig, dtype=np.float32).squeeze()
+            fs, signal = parse_ecg_csv(f.read())
+        return _signal_info(np.asarray(signal, dtype=np.float32)[None, :], fs)
+
+    if ext == '.npy':
+        arr = np.load(path).astype(np.float32)
+        return _signal_info(arr, float(TRAIN_FS))
+
+    # .mat (read the 'val' array if present) or .dat (PhysioNet format 212)
+    if ext == '.mat':
+        try:
+            import scipy.io as sio
+            d = sio.loadmat(path)
+            key = 'val' if 'val' in d else next(
+                (k for k, v in d.items() if not k.startswith('__')), None)
+            if key is not None:
+                return _signal_info(d[key], float(TRAIN_FS))
+        except Exception:
+            pass  # fall through to ecg.load_ecg
+    sig = load.load_ecg(os.path.abspath(path))
+    return _signal_info(sig, float(TRAIN_FS))
 
 
 def find_best_model(models_dir):

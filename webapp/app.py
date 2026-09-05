@@ -33,6 +33,7 @@ from werkzeug.utils import secure_filename
 
 import prediction as pred_mod
 import project_info as proj
+import report_pdf
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
@@ -164,8 +165,33 @@ def predict():
 
     true_label = (request.form.get('label') or '').strip().upper()
     try:
-        fs, signal = pred_mod.load_uploaded_file(tmp_path, file.filename)
+        info = pred_mod.load_signal(tmp_path, file.filename)
+        mat, n_channels, fs = info['mat'], info['n_channels'], info['fs']
+
+        # ---- multi-lead handling: require the user to choose a lead first ----
+        selected_channel = None
+        if n_channels > 1:
+            channel = (request.form.get('channel') or '').strip()
+            try:
+                idx = int(channel)
+            except (TypeError, ValueError):
+                idx = -1
+            if idx < 0 or idx >= n_channels:
+                return jsonify({
+                    'ok': True, 'requires_channel': True,
+                    'n_channels': n_channels,
+                    'channel_names': info['names'], 'fs': fs,
+                })
+            selected_channel = idx
+            signal = pred_mod.select_channel(mat, idx)
+        else:
+            signal = mat[0]
+
         result = SERVICE.predict_signal(fs, signal)
+        result['n_channels'] = n_channels
+        result['channel'] = (selected_channel + 1) if selected_channel is not None else 1
+        result['channel_name'] = (info['names'][selected_channel]
+                                  if selected_channel is not None else info['names'][0])
         result['plot'] = 'data:image/png;base64,' + SERVICE.render_plot(fs, signal, result)
         result['plotly'] = SERVICE.render_plotly(fs, signal, result)
         result['models'] = [os.path.relpath(p, MODELS_DIR)
@@ -212,6 +238,27 @@ def _synthetic_signal(kind='normal', n=256 * 30):
     return (base + 0.0).astype(np.float32)
 
 
+@app.route('/report.pdf', methods=['POST'])
+def generate_report_pdf():
+    """Build and return a real, well-formatted A4 clinical report as a PDF.
+
+    The client posts the analysis (patient info + the base64 ECG PNG already
+    rendered for the interactive view) as JSON; we return application/pdf so
+    the browser downloads it automatically.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        pdf = report_pdf.build_report(data, proj.PROJECT_INFO, proj.REFERENCE)
+    except Exception as e:
+        log.warning("Error generando el PDF del informe: %s", e)
+        return jsonify({'ok': False, 'error': _sanitize(e)}), 400
+    resp = app.response_class(pdf, mimetype='application/pdf')
+    resp.headers['Content-Disposition'] = \
+        "attachment; filename=informe_ecg.pdf"
+    resp.headers['Content-Length'] = str(len(pdf))
+    return resp
+
+
 @app.route('/example', methods=['POST'])
 def example():
     """Generate a synthetic single-lead signal server-side and classify it.
@@ -227,6 +274,9 @@ def example():
     signal = _synthetic_signal(kind, n)
     try:
         result = SERVICE.predict_signal(pred_mod.TRAIN_FS, signal)
+        result['n_channels'] = 1
+        result['channel'] = 1
+        result['channel_name'] = 'I'
         result['plot'] = 'data:image/png;base64,' + SERVICE.render_plot(
             pred_mod.TRAIN_FS, signal, result)
         result['plotly'] = SERVICE.render_plotly(pred_mod.TRAIN_FS, signal, result)

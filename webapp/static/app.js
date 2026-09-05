@@ -3,66 +3,54 @@
 // ============================================================ i18n =========
 const I18N = {
   es: {
-    "app.title": "Clasificador de Electrocardiogramas",
-    "app.subtitle": "Asistente automático de lectura de ECG (modelo Hannun et al., Nature Medicine 2019, datos PhysioNet).",
+    "app.title": "Clasificador de ECG",
+    "app.subtitle": "Lectura automática de ECG de una sola derivación (Hannun et al., Nature Medicine 2019 · PhysioNet).",
     "app.ready": "Modelo listo",
-    "app.disclaimer": "⚠️ Herramienta de investigación. No sustituye la lectura de un cardiólogo ni debe usarse para diagnóstico clínico.",
-    "app.disclaimer2": "Desarrollado como parte del curso Trabajo de Investigación · UNSA.",
-    "app.summaryShort": "Asistente automático de lectura de ECG de una sola derivación (Hannun et al., Nature Medicine 2019 · PhysioNet).",
-    "empty.title": "Aún no hay resultados",
-    "empty.body": "Sube un ECG o usa un ejemplo rápido y pulsa «Analizar ECG». El resultado aparecerá aquí.",
+    "app.disclaimer": "Herramienta de investigación — no reemplaza la lectura de un cardiólogo.",
+    "app.disclaimer2": "Trabajo de Investigación · UNSA.",
+    "nav.upload": "Cargar ECG",
+    "nav.vis": "Resultado",
+    "nav.detail": "Detalle Técnico",
+    "step1.title": "Cargar electrocardiograma",
+    "step1.intro": "Sube un ECG de una sola derivación o un ejemplo preconfigurado. El análisis inicia solo al pulsar «Analizar ECG».",
+    "step1.drop": "Arrastra el archivo aquí",
+    "step1.dropSub": "o haz clic para seleccionarlo",
+    "step1.formats": "Formatos:",
+    "step1.help": "¿Qué formato usar?",
+    "step1.helpCsv": "el primer número de la primera fila es la frecuencia de muestreo (Hz) y el resto son los valores de la señal.",
+    "step1.helpOther": "Los archivos .mat, .dat y .npy de una sola derivación también se aceptan. Si la señal tiene otra frecuencia, se ajusta automáticamente.",
+    "step1.name": "Paciente (opcional)",
+    "step1.age": "Edad (opcional)",
+    "step1.gt": "Diagnóstico conocido (opcional)",
+    "step1.quick": "Ejemplos rápidos",
     "quick.normal": "Ritmo normal", "quick.normalSub": "ejemplo · sin subir archivo",
     "quick.af": "Fibrilación auricular", "quick.afSub": "ejemplo · sin subir archivo",
     "quick.noise": "Ruido / artefacto", "quick.noiseSub": "ejemplo · sin subir archivo",
-    "step1.quick": "Ejemplos rápidos (para demo)",
-    "footer.about": "Sobre el proyecto",
-    "footer.auth": "Ficha de autoría",
-    "footer.author": "Autor/a",
-    "footer.advisor": "Asesor/a",
-    "footer.course": "Curso",
-    "footer.version": "Versión",
-    "footer.model": "Modelo",
-    "footer.academic": "Sistema desarrollado con fines académicos de investigación.",
-    "footer.refs": "Referencias",
-    "footer.privacy": "Privacidad y seguridad",
-    "footer.privacyText": "Los datos de paciente se usan solo en su navegador para el informe y se eliminan tras procesarse. Los archivos subidos no se conservan.",
-    "footer.type": "Aplicación de investigación",
+    "btn.analyze": "Analizar ECG",
+    "btn.print": "Descargar informe (PDF)",
+    "empty.title": "Aún no hay resultados",
+    "empty.body": "Sube un ECG o usa un ejemplo y pulsa «Analizar ECG» para ver el resultado.",
+    "leads.title": "Se detectaron múltiples derivaciones",
+    "leads.text": "El sistema analizará una sola derivación. Selecciona cuál usar:",
+    "vis.sub": "Trazado del ECG, clasificación por tramos y distribución.",
+    "detail.sub": "Rigor metodológico: enfoque, ficha técnica y artefactos de validación.",
+    "detail.empty": "Aún no hay detalle",
+    "tab.vis": "Visualización",
+    "tab.detail": "Detalle técnico",
+    "det.classes": "Ritmos reconocidos",
+    "det.val": "Fe del entrenamiento (val)",
+    "det.acc": "exactitud", "det.loss": "pérdida",
     "det.arch": "Arquitectura",
     "det.archVal": "CNN profunda (Hannun et al., Nature Medicine 2019) · 34 capas residuales / 1.3 M parámetros",
     "det.dataset": "Conjunto de datos",
     "det.datasetVal": "PhysioNet CinC2017 · ECG de una sola derivación · 300 Hz · segmentos de 256 muestras",
     "det.trained": "Entrenado",
     "det.model": "Ficha técnica del modelo",
-    "det.artifacts": "Para incluir la matriz de confusión y el F1 por clase como imágenes, ejecuta el script de evaluación con --save_metrics_dir (ver README).",
     "confidence": "Confianza media del ritmo predominante",
-    "methodology": "Enfoque: la señal se divide en segmentos de 256 muestras (a 300 Hz), se normaliza con la media/desviación global del conjunto de entrenamiento y se clasifica con una red neuronal convolucional profunda (réplica de Hannun et al., Nature Medicine 2019) entrenada sobre PhysioNet CinC2017. Cada segmento recibe una clase (normal, fibrilación auricular, otro ritmo, ruido) y se combinan para dar el ritmo predominante del registro. Esta vista muestra los artefactos de la evaluación para reproducibilidad.",
-    "step1.title": "Cargar el electrocardiograma",
-    "step1.intro": "Sube una grabación de ECG de una sola derivación (una línea del electrocardiograma) o usa una señal de prueba con un clic.",
-    "step1.drop": "Arrastra el archivo aquí",
-    "step1.dropSub": "o haz clic para seleccionarlo",
-    "step1.formats": "Formatos:",
-    "step1.help": "¿Qué formato debo usar?",
-    "step1.helpCsv": "el primer número de la primera fila es la frecuencia de muestreo (Hz) y el resto son los valores de la señal.",
-    "step1.helpOther": "Los archivos .mat, .dat y .npy de una sola derivación también se aceptan. Si la señal tiene otra frecuencia, se ajusta automáticamente.",
-    "step1.name": "Paciente (opcional)",
-    "step1.age": "Edad (opcional)",
-    "step1.gt": "Diagnóstico conocido (opcional)",
-    "step1.confirm": "Confirmo que la señal es un ECG de una sola derivación.",
-    "btn.example": "Usar señal de prueba",
-    "btn.analyze": "Analizar ECG",
-    "btn.print": "Descargar informe (PDF)",
-    "step2.title": "Resultado",
-    "tab.vis": "Visualización",
-    "tab.report": "Informe",
-    "tab.detail": "Detalle técnico",
-    "det.classes": "Ritmos reconocidos",
-    "det.val": "Fe del entrenamiento (val)",
-    "det.acc": "exactitud",
-    "det.loss": "pérdida",
-    "modal.title": "Análisis completado",
-    "report.ready": "Informe listo para imprimir.",
-    "file.ready": "Archivo listo",
-    "file.of": "de",
+    "methodology": "Enfoque: la señal se divide en segmentos de 256 muestras (a 300 Hz), se normaliza con la media/desviación global del conjunto de entrenamiento y se clasifica con una red neuronal convolucional profunda (réplica de Hannun et al., Nature Medicine 2019) entrenada sobre PhysioNet CinC2017. Cada segmento recibe una clase (normal, fibrilación auricular, otro ritmo, ruido) y se combinan para dar el ritmo predominante del registro.",
+    "footer.author": "Autor:", "footer.advisor": "Asesor:",
+    "footer.model": "Modelo", "footer.refs": "Ref.:",
+    "file.ready": "Archivo listo", "file.select": "Selecciona un archivo.",
     "ok": "Análisis completado.",
     "loading": "Analizando la señal…",
     "err.network": "Error de conexión: ",
@@ -70,66 +58,54 @@ const I18N = {
     "resampled": (a, b) => `La señal se ajustó automáticamente de ${Math.round(a)} Hz a ${Math.round(b)} Hz (la frecuencia que usa el modelo).`,
   },
   en: {
-    "app.title": "Electrocardiogram Classifier",
-    "app.subtitle": "Automated ECG reading assistant (Hannun et al., Nature Medicine 2019, PhysioNet data).",
+    "app.title": "ECG Classifier",
+    "app.subtitle": "Automated single-lead ECG reading (Hannun et al., Nature Medicine 2019 · PhysioNet).",
     "app.ready": "Model ready",
-    "app.disclaimer": "⚠️ Research tool. Does not replace a cardiologist's reading and must not be used for clinical diagnosis.",
-    "app.disclaimer2": "Developed as part of the Research Work course · UNSA.",
-    "app.summaryShort": "Automated single-lead ECG reading assistant (Hannun et al., Nature Medicine 2019 · PhysioNet).",
-    "empty.title": "No results yet",
-    "empty.body": "Upload an ECG or use a quick example and press “Analyze ECG”. The result will appear here.",
+    "app.disclaimer": "Research tool — does not replace a cardiologist's reading.",
+    "app.disclaimer2": "Research Work course · UNSA.",
+    "nav.upload": "Upload ECG",
+    "nav.vis": "Result",
+    "nav.detail": "Technical detail",
+    "step1.title": "Upload electrocardiogram",
+    "step1.intro": "Upload a single-lead ECG recording or a preset example. Analysis only starts when you press “Analyze ECG”.",
+    "step1.drop": "Drag the file here",
+    "step1.dropSub": "or click to select it",
+    "step1.formats": "Formats:",
+    "step1.help": "What format to use?",
+    "step1.helpCsv": "the first number of the first row is the sampling rate (Hz) and the rest are the signal values.",
+    "step1.helpOther": "Single-lead .mat, .dat and .npy files are also accepted. If the signal has another rate, it is adjusted automatically.",
+    "step1.name": "Patient (optional)",
+    "step1.age": "Age (optional)",
+    "step1.gt": "Known diagnosis (optional)",
+    "step1.quick": "Quick examples",
     "quick.normal": "Normal rhythm", "quick.normalSub": "example · no upload",
     "quick.af": "Atrial fibrillation", "quick.afSub": "example · no upload",
     "quick.noise": "Noise / artifact", "quick.noiseSub": "example · no upload",
-    "step1.quick": "Quick examples (for demo)",
-    "footer.about": "About the project",
-    "footer.auth": "Authorship",
-    "footer.author": "Author",
-    "footer.advisor": "Advisor",
-    "footer.course": "Course",
-    "footer.version": "Version",
-    "footer.model": "Model",
-    "footer.academic": "System developed for academic research purposes.",
-    "footer.refs": "References",
-    "footer.privacy": "Privacy & security",
-    "footer.privacyText": "Patient data is used only in your browser for the report and is removed after processing. Uploaded files are not kept.",
-    "footer.type": "Research application",
+    "btn.analyze": "Analyze ECG",
+    "btn.print": "Download report (PDF)",
+    "empty.title": "No results yet",
+    "empty.body": "Upload an ECG or use an example and press “Analyze ECG” to see the result.",
+    "leads.title": "Multiple leads detected",
+    "leads.text": "The system will analyze a single lead. Choose which one to use:",
+    "vis.sub": "ECG trace, segment classification and distribution.",
+    "detail.sub": "Methodological rigor: approach, technical sheet and validation artefacts.",
+    "detail.empty": "No detail yet",
+    "tab.vis": "Visualization",
+    "tab.detail": "Technical detail",
+    "det.classes": "Recognized rhythms",
+    "det.val": "Training fit (val)",
+    "det.acc": "accuracy", "det.loss": "loss",
     "det.arch": "Architecture",
     "det.archVal": "Deep CNN (Hannun et al., Nature Medicine 2019) · 34 residual layers / 1.3 M params",
     "det.dataset": "Dataset",
     "det.datasetVal": "PhysioNet CinC2017 · single-lead ECG · 300 Hz · 256-sample segments",
     "det.trained": "Trained",
     "det.model": "Model technical sheet",
-    "det.artifacts": "To include the confusion matrix and per-class F1 as figures here, run the eval script with --save_metrics_dir (see README).",
     "confidence": "Mean confidence of the dominant rhythm",
-    "methodology": "Approach: the signal is split into 256-sample segments (at 300 Hz), normalised with the global training mean/std, and classified by a deep convolutional neural network (replica of Hannun et al., Nature Medicine 2019) trained on PhysioNet CinC2017. Each segment gets a class (normal, atrial fibrillation, other, noise) and they are combined into the record's dominant rhythm. This view shows the evaluation artefacts for reproducibility.",
-    "step1.title": "Upload the electrocardiogram",
-    "step1.intro": "Upload a single-lead ECG recording (one line of the electrocardiogram) or use a test signal with one click.",
-    "step1.drop": "Drag the file here",
-    "step1.dropSub": "or click to select it",
-    "step1.formats": "Formats:",
-    "step1.help": "What format should I use?",
-    "step1.helpCsv": "the first number of the first row is the sampling rate (Hz) and the rest are the signal values.",
-    "step1.helpOther": "Single-lead .mat, .dat and .npy files are also accepted. If the signal has another rate, it is adjusted automatically.",
-    "step1.name": "Patient (optional)",
-    "step1.age": "Age (optional)",
-    "step1.gt": "Known diagnosis (optional)",
-    "step1.confirm": "I confirm the signal is a single-lead ECG.",
-    "btn.example": "Use test signal",
-    "btn.analyze": "Analyze ECG",
-    "btn.print": "Download report (PDF)",
-    "step2.title": "Result",
-    "tab.vis": "Visualization",
-    "tab.report": "Report",
-    "tab.detail": "Technical detail",
-    "det.classes": "Recognized rhythms",
-    "det.val": "Training fit (val)",
-    "det.acc": "accuracy",
-    "det.loss": "loss",
-    "modal.title": "Analysis complete",
-    "report.ready": "Report ready to print.",
-    "file.ready": "File ready",
-    "file.of": "of",
+    "methodology": "Approach: the signal is split into 256-sample segments (at 300 Hz), normalised with the global training mean/std, and classified by a deep convolutional neural network (replica of Hannun et al., Nature Medicine 2019) trained on PhysioNet CinC2017. Each segment gets a class (normal, atrial fibrillation, other, noise) and they are combined into the record's dominant rhythm.",
+    "footer.author": "Author:", "footer.advisor": "Advisor:",
+    "footer.model": "Model", "footer.refs": "Ref.:",
+    "file.ready": "File ready", "file.select": "Select a file.",
     "ok": "Analysis complete.",
     "loading": "Analyzing the signal…",
     "err.network": "Connection error: ",
@@ -158,27 +134,36 @@ function cColor(lbl) { return (CLASS_INFO[lbl] || {}).color || "#9467bd"; }
 // ============================================================ state =======
 const $ = (id) => document.getElementById(id);
 const dropzone = $("dropzone"), fileInput = $("file"), btnClassify = $("btnClassify");
-const statusEl = $("status"), resultCard = $("result");
+const statusEl = $("status");
 const diagnosisBox = $("diagnosisBox"), trafficBox = $("trafficBox"), summaryBox = $("summaryBox");
 const gtBox = $("gtBox"), plotDiv = $("plotDiv"), intervalList = $("intervalList");
-const trueLabelInput = $("trueLabel"), confirmCheck = $("confirmCheck"), fileCard = $("fileCard");
-const emptyState = $("emptyState"), resultBody = $("resultBody");
-let lastResult = null, currentFile = null;
+const trueLabelInput = $("trueLabel"), fileCard = $("fileCard");
+const visContent = $("visContent"), visEmpty = $("visEmpty"),
+      skel = $("skel"), reportBody = $("reportBody"),
+      detContent = $("detContent"), detEmpty = $("detEmpty");
+const leadsBanner = $("leadsBanner"), leadsSelect = $("leadsSelect"), leadsText = $("leadsText");
 
-// Institutional identity (from the header data-* attributes).
-const instEl = document.querySelector(".inst-strip");
-const INST_NAME = instEl ? instEl.dataset.institucion : "";
-const instEscuela = instEl ? instEl.dataset.escuela : "";
+let lastResult = null, currentFile = null, pendingChannel = null;
 
+const INST_ESCUELA = "UNSA · Escuela Profesional de Ingeniería Electrónica";
+
+// ============================================================ utils =======
 function setStatus(msg, cls) { statusEl.textContent = msg; statusEl.className = "status " + (cls || ""); }
 function setLoading(on) {
   btnClassify.disabled = on;
   btnClassify.classList.toggle("btn-loading", on);
   btnClassify.setAttribute("aria-busy", on ? "true" : "false");
-  if (on) setStatus(t("loading"), "loading");
+  if (on) skel.hidden = false;
 }
-
-// Show the model name (from the checkpoint path) in the badge and footer.
+function applyI18n() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+  $("langEs").classList.toggle("active", LANG === "es");
+  $("langEn").classList.toggle("active", LANG === "en");
+  if (lastResult) render(lastResult);
+  refreshFileCard();
+  updateThemeIcon();
+}
 function setModelName(info) {
   if (!info || !info.model_path) return;
   const rel = info.model_path.replace(/\\/g, "/").split("/").pop();
@@ -188,102 +173,124 @@ function setModelName(info) {
   $("modelName").title = info.model_path;
   $("modelNameFooter").textContent = info.model_path;
 }
-function applyI18n() {
-  document.documentElement.lang = LANG;
-  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
-  $("langEs").classList.toggle("active", LANG === "es");
-  $("langEn").classList.toggle("active", LANG === "en");
-  if (lastResult) render(lastResult);   // re-render dynamic content
-  refreshFileCard();
+function updateThemeIcon() {
+  const el = $("themeToggle");
+  const dark = document.documentElement.dataset.theme === "dark";
+  el.innerHTML = dark
+    ? '<svg class="ico"><use href="#i-sun"/></svg>'
+    : '<svg class="ico"><use href="#i-moon"/></svg>';
 }
 
-// ============================================================ upload =======
-async function postFile(fd) {
-  setLoading(true);
-  try {
-    const resp = await fetch("/predict", { method: "POST", body: fd });
-    const data = await resp.json();
-    if (!data.ok) { setStatus(t("err.analyze") + (data.error || ""), "err"); return null; }
-    render(data);
-    setStatus(t("ok"), "ok");
-    return data;
-  } catch (err) { setStatus(t("err.network") + err.message, "err"); return null; }
-  finally { setLoading(false); }
+// ============================================================ sidebar nav =
+function goTo(sec) {
+  document.querySelectorAll(".nav-link").forEach(b => b.classList.toggle("active", b.dataset.sec === sec));
+  ["upload", "vis", "det"].forEach(s => { const el = $("sec-" + s); if (el) el.hidden = (s !== sec); });
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
+document.querySelectorAll(".nav-link").forEach(b => b.addEventListener("click", () => goTo(b.dataset.sec)));
 
+// ============================================================ file upload =
 function refreshFileCard() {
   if (!currentFile) { fileCard.hidden = true; return; }
   fileCard.hidden = false;
   const size = currentFile.size > 1048576 ? (currentFile.size/1048576).toFixed(2)+" MB" : Math.round(currentFile.size/1024)+" KB";
-  fileCard.innerHTML = `<span>📄</span><div><div class="fname">${currentFile.name}</div><div class="hint muted">${t("file.ready")} · ${size} · ${t("file.of")} ${new Date().toLocaleTimeString()}</div></div>`;
+  fileCard.innerHTML = `<svg class="ico"><use href="#i-file"/></svg><div><div class="fname">${escapeHtml(currentFile.name)}</div><div class="hint muted">${size} · ${t("file.ready")}</div></div>`;
 }
 
-async function classify(file, name) {
-  currentFile = file;
-  refreshFileCard();
-  const fd = new FormData();
-  fd.append("file", file, name || file.name);
-  if (trueLabelInput.value.trim()) fd.append("label", normalizeLabel(trueLabelInput.value.trim()));
-  return await postFile(fd);
-}
-function normalizeLabel(s) {
-  const map = { normal: "N", n: "N", af: "A", a: "A", "fibrilacion": "A", otro: "O", o: "O", ruido: "~", "~": "~", "|": "|" };
-  const k = s.toLowerCase();
-  return map[k] || s;
-}
+// NO auto-processing: only register the file and show the confirmation card.
 function handleFiles(files) {
   if (!files || !files.length) return;
-  setStatus("Archivo: " + files[0].name, "loading");
-  classify(files[0], files[0].name);
+  currentFile = files[0];
+  pendingChannel = null;
+  leadsBanner.hidden = true;
+  refreshFileCard();
+  setStatus("", "");
 }
-
 dropzone.addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("drag"); });
 dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag"));
 dropzone.addEventListener("drop", e => { e.preventDefault(); dropzone.classList.remove("drag"); handleFiles(e.dataTransfer.files); });
 dropzone.addEventListener("click", () => fileInput.click());
 fileInput.addEventListener("change", () => { if (fileInput.files.length) handleFiles(fileInput.files); });
 
+function postFile(channel) {
+  if (!currentFile) { setStatus(t("file.select"), "err"); return null; }
+  skel.hidden = false; visEmpty.hidden = true; visContent.hidden = false;
+  setLoading(true);
+  const fd = new FormData();
+  fd.append("file", currentFile, currentFile.name);
+  if (channel !== undefined && channel !== null) fd.append("channel", channel);
+  if (trueLabelInput.value.trim()) fd.append("label", normalizeLabel(trueLabelInput.value.trim()));
+  return fetch("/predict", { method: "POST", body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) { setStatus(t("err.analyze") + (data.error || ""), "err"); return null; }
+      if (data.requires_channel) { showLeadsBanner(data); return "needs_channel"; }
+      render(data);
+      setStatus(t("ok"), "ok");
+      return data;
+    })
+    .catch(err => { setStatus(t("err.network") + err.message, "err"); return null; })
+    .finally(() => { skel.hidden = true; });
+}
 btnClassify.addEventListener("click", () => {
-  if (!confirmCheck.checked) { setStatus(t("step1.confirm"), "err"); statusEl.scrollIntoView({behavior:"smooth"}); return; }
-  if (currentFile) { classify(currentFile, currentFile.name); }
-  else if (fileInput.files.length) { handleFiles(fileInput.files); }
-  else { setStatus("📄 Selecciona un archivo o usa la señal de prueba.", "err"); }
+  if (!currentFile) { setStatus(t("file.select"), "err"); return; }
+  const ch = pendingChannel !== null ? pendingChannel : undefined;
+  postFile(ch);
 });
 
-// Quick examples (Ritmo normal / AF / Ruido) -> /example with a `kind`.
+// ============================================================ multi-lead ===
+function showLeadsBanner(data) {
+  pendingChannel = null;
+  leadsBanner.hidden = false;
+  leadsText.textContent = t("leads.text");
+  leadsSelect.innerHTML = "";
+  (data.channel_names || []).forEach((name, i) => {
+    const o = document.createElement("option");
+    o.value = i; o.textContent = name;
+    leadsSelect.appendChild(o);
+  });
+}
+$("leadsContinue").addEventListener("click", () => {
+  const ch = parseInt(leadsSelect.value, 10);
+  if (isNaN(ch)) return;
+  pendingChannel = ch;
+  leadsBanner.hidden = true;
+  postFile(ch);
+});
+
+// ============================================================ quick examples =
 async function runExample(kind) {
   const cards = document.querySelectorAll(".example-card");
   cards.forEach(c => c.disabled = true);
+  skel.hidden = false; visEmpty.hidden = true; visContent.hidden = false;
   setStatus(t("loading"), "loading");
   try {
-    const resp = await fetch("/example", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind }),
-    });
+    const resp = await fetch("/example", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind }) });
     const data = await resp.json();
     if (!data.ok) { setStatus(t("err.analyze") + data.error, "err"); return; }
     render(data); setStatus(t("ok"), "ok");
   } catch (err) { setStatus(t("err.network") + err.message, "err"); }
-  finally { cards.forEach(c => c.disabled = false); }
+  finally { cards.forEach(c => c.disabled = false); skel.hidden = true; }
 }
-document.querySelectorAll(".example-card[data-kind]").forEach(c =>
-  c.addEventListener("click", () => runExample(c.dataset.kind)));
+document.querySelectorAll(".example-card[data-kind]").forEach(c => c.addEventListener("click", () => runExample(c.dataset.kind)));
 
 // ============================================================ render ======
 function render(data) {
   lastResult = data;
-  resultCard.hidden = false;
-  emptyState.hidden = true;
-  resultBody.hidden = false;
   setModelName(data.info);
-  resultCard.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  visEmpty.hidden = true; visContent.hidden = false; skel.hidden = true;
+  detContent.hidden = false; detEmpty.hidden = true;
+  reportBody.hidden = true;
+
   renderNotice(data); renderDiagnosis(data); renderTraffic(data); renderSummary(data);
-  renderGroundTruth(data); renderPlotly(data); renderIntervals(data); renderReport(data);
-  selectTab("vis");
+  renderGroundTruth(data); renderIntervals(data); renderReport(data);
+
+  // Show the Result section BEFORE drawing the plot, so Plotly measures the
+  // real (visible) container width and fills 100% of it.
+  goTo("vis");
+  renderPlotly(data);
 }
-// Keep the empty state visible until a first result is shown.
-emptyState.hidden = false;
 
 function renderNotice(data) {
   const n = $("notice");
@@ -291,7 +298,6 @@ function renderNotice(data) {
   else n.style.display = "none";
 }
 function dominantConfidence(data) {
-  // Mean model confidence over the intervals classified as the dominant rhythm.
   const lbl = data.dominant;
   const ivs = (data.per_interval || []).filter(iv => iv.label === lbl);
   if (!ivs.length) return null;
@@ -302,16 +308,16 @@ function renderDiagnosis(data) {
   const lbl = data.dominant, info = cInfo(lbl);
   const pct = (data.summary && data.summary[0]) ? data.summary[0].pct : 0;
   const conf = dominantConfidence(data);
+  const lead = data.channel_name ? ` · ${LANG==="es"?"derivación":"lead"} ${data.channel_name}` : "";
   diagnosisBox.innerHTML = `<div class="diagnosis-card" style="border-left-color:${cColor(lbl)}">
     <div class="diagnosis-name" style="color:${cColor(lbl)}">${info.name}</div>
-    <div class="diagnosis-desc">${info.desc} — ${LANG==="es"?"fue el ritmo más frecuente":"it was the most frequent rhythm"} (${pct}% ${LANG==="es"?"de la señal":"of the signal"}).</div>
-    ${conf !== null ? `<div class="diagnosis-conf">✦ ${t("confidence")}: <strong>${conf}%</strong></div>` : ""}
+    <div class="diagnosis-desc">${info.desc} — ${LANG==="es"?"fue el ritmo más frecuente":"it was the most frequent rhythm"} (${pct}% ${LANG==="es"?"de la señal":"of the signal"})${lead}.</div>
+    ${conf !== null ? `<div class="diagnosis-conf">${t("confidence")}: <strong>${conf}%</strong></div>` : ""}
   </div>`;
 }
 function renderTraffic(data) {
   trafficBox.innerHTML = "";
-  const order = ["N","A","O","~"];
-  order.forEach(lbl => {
+  ["N","A","O","~"].forEach(lbl => {
     if (!data.summary.some(s => s.label === lbl)) return;
     const s = data.summary.find(x => x.label === lbl);
     const isDominant = lbl === data.dominant;
@@ -326,7 +332,7 @@ function renderSummary(data) {
     const info = cInfo(s.label);
     summaryBox.innerHTML += `<span class="chip" style="background:${cColor(s.label)}" title="${info.desc} — ${s.count} ${LANG==="es"?"intervalos":"intervals"}">${info.name} · ${s.pct}%</span>`;
   });
-  summaryBox.innerHTML += `<p class="hint muted summary-hint">${LANG==="es"?"Cada color corresponde a un tramo de la señal. Pasa el cursor sobre la señal para ver el detalle.":"Each color matches a segment. Hover the signal for detail."}</p>`;
+  summaryBox.innerHTML += `<p class="hint muted summary-hint">${LANG==="es"?"Cada color corresponde a un tramo de la señal.":"Each color matches a segment."}</p>`;
 }
 function renderGroundTruth(data) {
   gtBox.innerHTML = "";
@@ -335,32 +341,46 @@ function renderGroundTruth(data) {
     gtBox.innerHTML = `<div class="gt ${g.correct?"gt-ok":"gt-bad"}">${g.correct?"✔":"✘"} ${g.correct?(LANG==="es"?"Coincide con el diagnóstico indicado":"Matches the given diagnosis"):(LANG==="es"?"No coincide con el diagnóstico indicado":"Does not match the given diagnosis")} (${data.dominant})</div>`;
   }
 }
-// Clinical ECG grid: pinkish plot background + grid lines (paper ECG look).
 function isDark() { return document.documentElement.dataset.theme === "dark"; }
 function renderPlotly(data) {
   const p = data.plotly;
   if (!p || typeof Plotly === "undefined") { plotDiv.innerHTML = `<img class="plot" src="${data.plot}" alt="ECG">`; return; }
   const dark = isDark();
-  const plotBg = dark ? "#1a1416" : "#fff5f5";
-  const grid = dark ? "#3a2830" : "#f0bcbc";
+  // Proper clinical "millimetre-paper" look: white/warm bg, a fine minor grid
+  // (1mm = 0.04s / 0.1mV) and a slightly stronger major grid (5mm = 0.2s / 0.5mV).
+  const bg = dark ? "#12151b" : "#fdfdfb";
+  const gridMinor = dark ? "#2a3543" : "#f3dedd";
+  const gridMajor = dark ? "#3c4a5c" : "#e6bab8";
+  const gridEdge = dark ? "#33405a" : "#c9d4e2";
+  const tickColor = dark ? "#c6d0e0" : "#35465c";
+  const traceColor = "#111827";
   const layout = {
-    title: LANG==="es"?"Señal de ECG con clasificación por tramos":"ECG signal with segment classification",
+    title: { text: LANG==="es"?"Señal de ECG con clasificación por tramos":"ECG signal with segment classification", font: { size: 15, color: getComputedStyle(document.body).color }, x: 0.01 },
+    autosize: true,
     xaxis: {
       title: LANG==="es"?"tiempo (s)":"time (s)",
-      gridcolor: grid, showgrid: true, zeroline: false,
-      dtick: 0.2, linecolor: grid,
+      gridcolor: gridMajor, gridwidth: 1, showgrid: true, zeroline: false,
+      showline: true, linecolor: gridEdge, mirror: true,
+      dtick: 1, tickfont: { size: 11, color: tickColor }, titlefont: { size: 12 },
+      automargin: true,
+      minor: { showgrid: true, dtick: 0.2, gridcolor: gridMinor, gridwidth: 1 },
     },
     yaxis: {
       title: LANG==="es"?"Amplitud (mV)":"Amplitude (mV)",
-      gridcolor: grid, showgrid: true, zeroline: false,
-      dtick: 0.5, linecolor: grid,
+      gridcolor: gridMajor, gridwidth: 1, showgrid: true, zeroline: false,
+      showline: true, linecolor: gridEdge, mirror: true,
+      dtick: 0.5, tickfont: { size: 11, color: tickColor }, titlefont: { size: 12 },
+      automargin: true,
+      minor: { showgrid: true, dtick: 0.1, gridcolor: gridMinor, gridwidth: 1 },
     },
     shapes: p.shapes, showlegend: false,
-    margin: { l: 55, r: 15, t: 45, b: 45 }, hovermode: "x",
-    paper_bgcolor: plotBg, plot_bgcolor: plotBg,
+    margin: { l: 58, r: 20, t: 52, b: 48 }, hovermode: "x",
+    paper_bgcolor: bg, plot_bgcolor: bg,
     font: { color: getComputedStyle(document.body).color },
   };
-  Plotly.react(plotDiv, p.traces, layout, { responsive: true, displaylogo: false });
+  const traces = p.traces.map(tr => ({ ...tr, line: { ...(tr.line||{}), color: traceColor, width: 1 } }));
+  Plotly.react(plotDiv, traces, layout, { responsive: true, displaylogo: false });
+  requestAnimationFrame(() => { try { Plotly.Plots.resize(plotDiv); } catch (e) {} });
 }
 function renderIntervals(data) {
   intervalList.innerHTML = "";
@@ -375,21 +395,20 @@ function renderReport(data) {
   const now = new Date().toLocaleString();
   const fs = Math.round(data.applied_fs || data.orig_fs || 300);
   const conf = dominantConfidence(data);
+  const lead = data.channel_name || "";
   const rows = (data.summary || []).map(s => `<tr><td>${cInfo(s.label).name}</td><td>${s.pct}%</td><td>${s.count}</td></tr>`).join("");
-  const header = `
+  $("reportBody").innerHTML = `
     <div class="report-head">
-      <div class="r-inst">PROJECT_NAME_PLACEHOLDER</div>
-      <div class="r-sub">${escapeHtml(INST_NAME)} · ${escapeHtml(instEscuela)}</div>
-    </div>`.replace("PROJECT_NAME_PLACEHOLDER", t("app.title"));
-  $("reportBody").innerHTML = header + `
-    <h3>${LANG==="es"?"Informe ECG":"ECG Report"}</h3>
+      <div class="r-inst">${escapeHtml(t("app.title"))} — Informe ECG</div>
+      <div class="r-sub">${escapeHtml(INST_ESCUELA)} · ${escapeHtml(t("app.disclaimer2"))}</div>
+    </div>
     <table>
       <tr><th>${LANG==="es"?"Paciente":"Patient"}</th><td>${escapeHtml(name)}</td></tr>
       <tr><th>${LANG==="es"?"Edad":"Age"}</th><td>${escapeHtml(age)}</td></tr>
       <tr><th>${LANG==="es"?"Fecha":"Date"}</th><td>${now}</td></tr>
       <tr><th>${LANG==="es"?"Ritmo predominante":"Dominant rhythm"}</th><td>${info.name} (${pct}%)</td></tr>
       <tr><th>${LANG==="es"?"Confianza":"Confidence"}</th><td>${conf !== null ? conf + "%" : "—"}</td></tr>
-      <tr><th>${LANG==="es"?"Parámetros de registro":"Recording parameters"}</th><td>${fs} Hz · 1 derivación · duración ${(data.n_samples_in/fs).toFixed(1)} s</td></tr>
+      <tr><th>${LANG==="es"?"Parámetros de registro":"Recording parameters"}</th><td>${fs} Hz · 1 derivación${lead ? " ("+lead+")" : ""} · duración ${(data.n_samples_in/fs).toFixed(1)} s</td></tr>
     </table>
     <table>
       <tr><th>${LANG==="es"?"Clase":"Class"}</th><th>%</th><th>${LANG==="es"?"Intervalos":"Intervals"}</th></tr>
@@ -400,30 +419,27 @@ function renderReport(data) {
       <div><div class="sig-line">${LANG==="es"?"Investigador/a":"Evaluator"}</div></div>
       <div><div class="sig-line">${LANG==="es"?"Asesor / validador":"Advisor / validator"}</div></div>
     </div>
-    <p class="hint muted" style="margin-top:.8rem">${t("app.disclaimer")}</p>`;
+    <p class="hint muted" style="margin-top:.9rem;color:#6b7a8d">${t("app.disclaimer")}</p>`;
 }
-
-// ============================================================ tabs ========
-function selectTab(name) {
-  document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
-  document.querySelectorAll(".tab-panel").forEach(p => p.classList.toggle("active", p.id === "panel-" + name));
-  if (name === "rep" && typeof Plotly !== "undefined") Plotly.Plots.resize(plotDiv);
-}
-document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => selectTab(b.dataset.tab)));
-$("btnPrint").addEventListener("click", () => { selectTab("rep"); setTimeout(() => window.print(), 150); });
 
 // ============================================================ misc ========
 function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+function normalizeLabel(s) {
+  const map = { normal: "N", n: "N", af: "A", a: "A", "fibrilacion": "A", otro: "O", o: "O", ruido: "~", "~": "~", "|": "|" };
+  const k = s.toLowerCase();
+  return map[k] || s;
+}
 
 // theme
-$( "themeToggle").addEventListener("click", () => {
+try { const saved = localStorage.getItem("ecg-theme"); if (saved) document.documentElement.dataset.theme = saved; } catch (e) {}
+$("themeToggle").addEventListener("click", () => {
   const cur = document.documentElement.dataset.theme;
   const nxt = cur === "dark" ? "light" : "dark";
   document.documentElement.dataset.theme = nxt;
   try { localStorage.setItem("ecg-theme", nxt); } catch (e) {}
-  if (lastResult) renderPlotly(lastResult);   // recolour ECG grid on theme change
+  updateThemeIcon();
+  if (lastResult) renderPlotly(lastResult);
 });
-try { const saved = localStorage.getItem("ecg-theme"); if (saved) document.documentElement.dataset.theme = saved; } catch (e) {}
 
 // language
 $("langEs").addEventListener("click", () => { LANG = "es"; applyI18n(); });
@@ -433,12 +449,54 @@ $("langEn").addEventListener("click", () => { LANG = "en"; applyI18n(); });
 const fmtHelp = $("fmtHelp"), fmtHelpBox = $("fmtHelpBox");
 fmtHelp.addEventListener("click", () => fmtHelpBox.hidden = !fmtHelpBox.hidden);
 
-// Show the validation-metrics figures only if the eval script exported them.
+// Download a real, well-formatted PDF report (generated server-side).
+async function downloadReport() {
+  if (!lastResult) { setStatus(t("empty.body"), "err"); return; }
+  const btn = $("btnPrint");
+  btn.disabled = true;
+  try {
+    const b64 = (lastResult.plot || "").split(",")[1] || "";
+    const pct = (lastResult.summary && lastResult.summary[0]) ? lastResult.summary[0].pct : null;
+    const conf = dominantConfidence(lastResult);
+    const info = cInfo(lastResult.dominant);
+    const payload = {
+      plot: b64,
+      patient: $("patName").value || "",
+      age: $("patAge").value || "",
+      date: new Date().toLocaleString(),
+      dominant: lastResult.dominant,
+      dominant_name: info.name,
+      dominant_pct: pct,
+      confidence: conf,
+      fs: Math.round(lastResult.applied_fs || lastResult.orig_fs || 300),
+      duration: (lastResult.n_samples_in || 0) / (lastResult.applied_fs || 300),
+      lead: lastResult.channel_name || "",
+      classes: (lastResult.summary || []).map(s => ({ name: cInfo(s.label).name, pct: s.pct, count: s.count })),
+    };
+    const resp = await fetch("/report.pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) { const e = await resp.json().catch(()=>({})); throw new Error(e.error || resp.statusText); }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "informe_ecg.pdf";
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    setStatus("Informe PDF descargado.", "ok");
+  } catch (err) {
+    setStatus(t("err.analyze") + (err.message || ""), "err");
+  } finally { btn.disabled = false; }
+}
+$("btnPrint").addEventListener("click", downloadReport);
+
+// show validation-metrics figures only if the eval script exported them
 const metricsBox = $("metricsBox");
 if (metricsBox) {
   fetch("/static/metrics/confusion_matrix.png", { method: "HEAD" })
-    .then(r => { if (r.ok) metricsBox.hidden = false; })
-    .catch(() => {});
+    .then(r => { if (r.ok) metricsBox.hidden = false; }).catch(() => {});
 }
 
 // init

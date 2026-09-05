@@ -3,75 +3,98 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title data-i18n="app.title">Clasificador de ECG · Trabajo de Investigación UNSA</title>
+  <title data-i18n="app.title">Clasificador de ECG · UNSA</title>
   <meta name="description" content="Asistente automático de lectura de ECG basado en deep learning (Hannun et al., Nature Medicine 2019).">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-  <!-- ================= ENCABEZADO INSTITUCIONAL ================= -->
-  <header class="inst-strip" data-institucion="{{ project.institucion }}" data-facultad="{{ project.facultad }}" data-escuela="{{ project.escuela }}" data-curso="{{ project.curso }}{% if project.curso_codigo %} · {{ project.curso_codigo }}{% endif %} {{ project.anio }}">
-    <div class="inst-left">
-      <span class="inst-escudo" aria-hidden="true">
-        <svg viewBox="0 0 48 48" width="44" height="44" role="img" aria-label="Escudo UNSA">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M6 9l6-5 6 5"/><path d="M4 20h16"/></symbol>
+    <symbol id="i-viz" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M6 15l4-4 3 3 5-6"/></symbol>
+    <symbol id="i-report" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 12h6M9 16h6"/></symbol>
+    <symbol id="i-detail" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.7A8 8 0 1 1 11.3 3a7 7 0 0 0 9.7 9.7z"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3l10 18H2z"/><path d="M12 10v5"/><path d="M12 18h.01"/></symbol>
+  </defs>
+</svg>
+
+<div class="layout">
+  <!-- ============ BARRA LATERAL ============ -->
+  <aside class="sidebar">
+    <div class="side-brand">
+      <span class="side-logo" aria-hidden="true">
+        <svg viewBox="0 0 48 48" width="40" height="40">
           <rect x="2" y="2" width="44" height="44" rx="8" fill="#0d2b52"/>
           <path d="M24 6l14 7v10c0 9-6 15-14 19C16 38 10 32 10 23V13z" fill="#f2f5fa"/>
           <path d="M24 10l10 5v8c0 7-4 11-10 15-6-4-10-8-10-15v-8z" fill="#c9a227"/>
-          <text x="24" y="26" font-size="9" font-family="serif" text-anchor="middle" fill="#0d2b52" font-weight="bold">UNSA</text>
+          <text x="24" y="27" font-size="10" font-family="serif" text-anchor="middle" fill="#0d2b52" font-weight="bold">UNSA</text>
         </svg>
       </span>
-      <div class="inst-txt">
-        <span class="inst-nombre">{{ project.institucion }}</span>
-        <span class="inst-facultad">{{ project.facultad }} · {{ project.escuela }}</span>
-        <span class="inst-curso">{{ project.curso }}{% if project.curso_codigo %} · {{ project.curso_codigo }}{% endif %} · {{ project.anio }}</span>
+      <div class="side-brand-txt">
+        <strong data-i18n="app.title">Clasificador de ECG</strong>
+        <span>{{ project.escuela }}</span>
       </div>
     </div>
-    <div class="inst-titulo">{{ project.titulo }}</div>
-  </header>
 
-  <!-- ================= BARRA PRINCIPAL ================= -->
-  <header class="topbar">
-    <div class="brand">
-      <span class="logo">ECG</span>
-      <div>
-        <h1 data-i18n="app.title">Clasificador de Electrocardiogramas</h1>
-        <p class="subtitle" data-i18n="app.subtitle">
-          Lectura automática de ECG de una sola derivación (modelo Hannun et al., Nature Medicine 2019, datos PhysioNet).
-        </p>
-      </div>
-    </div>
-    <div class="topbar-controls">
-      <div class="topbar-badge" title="{{ model_train_date }}">
+    <nav class="side-nav" id="sideNav">
+      <button type="button" class="nav-link active" data-sec="upload">
+        <svg class="ico"><use href="#i-upload"/></svg><span data-i18n="nav.upload">Cargar ECG</span>
+      </button>
+      <button type="button" class="nav-link" data-sec="vis">
+        <svg class="ico"><use href="#i-viz"/></svg><span data-i18n="nav.vis">Resultado</span>
+      </button>
+      <button type="button" class="nav-link" data-sec="det">
+        <svg class="ico"><use href="#i-detail"/></svg><span data-i18n="nav.detail">Detalle Técnico</span>
+      </button>
+    </nav>
+
+    <div class="side-foot">
+      <div class="foot-badge" title="{{ model_train_date }}">
         <span class="dot"></span><span data-i18n="app.ready">Modelo listo</span>
         <span class="model-name" id="modelName" title="">{{ model_hash }}</span>
       </div>
-      <div class="seg-group" role="group" aria-label="Idioma">
-        <button type="button" id="langEs" class="seg active">ES</button>
-        <button type="button" id="langEn" class="seg">EN</button>
+      <div class="foot-meta">
+        <span>{{ project.institucion }}</span>
+        <span>{{ project.curso }} · {{ project.anio }} · v{{ project.version }}</span>
       </div>
-      <button type="button" id="themeToggle" class="icon-btn" title="Modo claro/oscuro">🌓</button>
+      <div class="foot-controls">
+        <div class="seg-group" role="group" aria-label="Idioma">
+          <button type="button" id="langEs" class="seg active">ES</button>
+          <button type="button" id="langEn" class="seg">EN</button>
+        </div>
+        <button type="button" id="themeToggle" class="icon-btn" title="Modo claro / oscuro"></button>
+      </div>
     </div>
-  </header>
+  </aside>
 
-  <main class="container">
-    <!-- ---------- PASO 1 · CARGAR ---------- -->
-    <section class="card">
-      <h2 class="step"><span class="step-num">1</span><span data-i18n="step1.title">Cargar el electrocardiograma</span></h2>
-      <p class="intro" data-i18n="step1.intro">
-        Sube una grabación de ECG de una sola derivación (una línea del electrocardiograma) o elige un ejemplo preconfigurado con un clic.
-      </p>
+  <!-- ============ CONTENIDO PRINCIPAL ============ -->
+  <main class="main">
+
+    <!-- ======== CARGAR ======== -->
+    <section class="panel upload-panel" id="sec-upload">
+      <div class="panel-head">
+        <h1 data-i18n="step1.title">Cargar electrocardiograma</h1>
+        <p class="panel-sub" data-i18n="step1.intro">
+          Sube un ECG de una sola derivación o un ejemplo preconfigurado. El análisis inicia solo al pulsar «Analizar ECG».
+        </p>
+      </div>
 
       <div id="dropzone" class="dropzone">
-        <div class="dz-icon">📄</div>
+        <div class="dz-icon"><svg class="ico ico-lg"><use href="#i-upload"/></svg></div>
         <p class="dz-main" data-i18n="step1.drop">Arrastra el archivo aquí</p>
         <p class="dz-sub" data-i18n="step1.dropSub">o haz clic para seleccionarlo</p>
-        <input type="file" id="file" name="file" accept=".csv,.mat,.dat,.npy,text/csv" required>
+        <input type="file" id="file" name="file" accept=".csv,.mat,.dat,.npy,text/csv">
       </div>
 
       <div id="fileCard" class="file-card" hidden></div>
 
       <p class="hint muted">
         <span data-i18n="step1.formats">Formatos:</span> <strong>CSV</strong>, <strong>.mat</strong>, <strong>.dat</strong>, <strong>.npy</strong>.
-        <span class="detail-toggle" id="fmtHelp" data-i18n="step1.help">¿Qué formato debo usar?</span></p>
+        <span class="detail-toggle" id="fmtHelp" data-i18n="step1.help">¿Qué formato usar?</span></p>
       <div id="fmtHelpBox" class="help-box" hidden>
         <p><strong>CSV (recomendado):</strong> <span data-i18n="step1.helpCsv">el primer número de la primera fila es la frecuencia de muestreo (Hz) y el resto son los valores de la señal.</span>
         <code>300,12.0,12.1,12.3,...</code></p>
@@ -87,9 +110,8 @@
           <input type="text" id="trueLabel" class="label-input" placeholder="Normal, AF, Otro, Ruido"></label>
       </div>
 
-      <!-- EJEMPLOS RÁPIDOS -->
       <div class="quickwrap">
-        <div class="quick-label" data-i18n="step1.quick">Ejemplos rápidos (para demo)</div>
+        <div class="quick-label" data-i18n="step1.quick">Ejemplos rápidos</div>
         <div class="quick-grid">
           <button type="button" class="example-card" data-kind="normal">
             <span class="example-dot" style="background:#2ca02c"></span>
@@ -106,11 +128,17 @@
         </div>
       </div>
 
-      <div class="confirm-row">
-        <label class="checkbox">
-          <input type="checkbox" id="confirmCheck">
-          <span data-i18n="step1.confirm">Confirmo que la señal es un ECG de una sola derivación.</span>
-        </label>
+      <!-- Advertencia multicanal (solo si el archivo tiene varias derivaciones) -->
+      <div id="leadsBanner" class="banner-warn" hidden>
+        <div class="banner-ico"><svg class="ico"><use href="#i-warn"/></svg></div>
+        <div class="banner-txt">
+          <strong data-i18n="leads.title">Se detectaron múltiples derivaciones</strong>
+          <span id="leadsText"></span>
+        </div>
+        <div class="banner-act">
+          <select id="leadsSelect" aria-label="Seleccionar derivación"></select>
+          <button type="button" id="leadsContinue" class="secondary">OK</button>
+        </div>
       </div>
 
       <div class="btn-row">
@@ -119,51 +147,61 @@
       <div id="status" class="status" role="status"></div>
     </section>
 
-    <!-- ---------- PASO 2 · RESULTADO ---------- -->
-    <section class="card" id="result" hidden>
-      <h2 class="step"><span class="step-num">2</span><span data-i18n="step2.title">Resultado</span></h2>
+    <!-- ======== RESULTADO ======== -->
+    <section class="panel" id="sec-vis" hidden>
+      <div class="panel-head">
+        <h1 data-i18n="nav.vis">Resultado</h1>
+        <p class="panel-sub" data-i18n="vis.sub">Trazado del ECG, clasificación por tramos y distribución.</p>
+      </div>
 
-      <div id="emptyState" class="empty-state">
-        <div class="es-icon">🫀</div>
+      <div id="visEmpty" class="empty-state">
+        <div class="es-icon"><svg class="ico ico-lg"><use href="#i-heart"/></svg></div>
         <p class="es-title" data-i18n="empty.title">Aún no hay resultados</p>
-        <p data-i18n="empty.body">Sube un ECG o usa un ejemplo rápido y pulsa «Analizar ECG». El resultado aparecerá aquí.</p>
+        <p data-i18n="empty.body">Sube un ECG o usa un ejemplo y pulsa «Analizar ECG».</p>
       </div>
 
-      <div id="notice" class="notice"></div>
+      <div id="visContent" hidden>
+        <div id="skel" class="skels" hidden>
+          <div class="skel skel-line" style="width:45%"></div>
+          <div class="skel skel-chips"></div>
+          <div class="skel skel-plot"></div>
+        </div>
 
-      <div id="resultBody" hidden>
-      <!-- Diagnóstico destacado + semáforo -->
-      <div class="diagnosis" id="diagnosisBox"></div>
-      <div id="trafficBox" class="traffic"></div>
-
-      <!-- PESTAÑAS -->
-      <div class="tabs" id="tabs">
-        <button type="button" class="tab active" data-tab="vis"><span data-i18n="tab.vis">Visualización</span></button>
-        <button type="button" class="tab" data-tab="rep"><span data-i18n="tab.report">Informe</span></button>
-        <button type="button" class="tab" data-tab="det"><span data-i18n="tab.detail">Detalle técnico</span></button>
-      </div>
-
-      <div class="tab-panel active" id="panel-vis">
+        <div id="notice" class="notice"></div>
+        <div class="diagnosis" id="diagnosisBox"></div>
+        <div id="trafficBox" class="traffic"></div>
         <div id="summaryBox" class="summary"></div>
         <div id="gtBox" class="gt"></div>
         <div class="plot-wrap"><div id="plotDiv"></div></div>
-      </div>
 
-      <div class="tab-panel" id="panel-rep">
-        <div id="reportBody" class="report"></div>
         <div class="btn-row">
-          <button type="button" id="btnPrint" class="secondary big">🖨 <span data-i18n="btn.print">Descargar informe (PDF)</span></button>
+          <button type="button" id="btnPrint" class="secondary big">
+            <svg class="ico"><use href="#i-file"/></svg><span data-i18n="btn.print">Descargar informe (PDF)</span>
+          </button>
         </div>
+        <div id="reportBody" class="report" hidden></div>
       </div>
+    </section>
 
-      <div class="tab-panel" id="panel-det">
+    <!-- ======== DETALLE TÉCNICO ======== -->
+    <section class="panel" id="sec-det" hidden>
+      <div class="panel-head">
+        <h1 data-i18n="nav.detail">Detalle Técnico</h1>
+        <p class="panel-sub" data-i18n="detail.sub">Rigor metodológico: enfoque, ficha técnica y artefactos de validación.</p>
+      </div>
+      <div id="detEmpty" class="empty-state">
+        <div class="es-icon"><svg class="ico ico-lg"><use href="#i-detail"/></svg></div>
+        <p class="es-title" data-i18n="detail.empty">Aún no hay detalle</p>
+        <p data-i18n="empty.body">Sube un ECG y pulsa «Analizar ECG» para ver la ficha técnica.</p>
+      </div>
+      <div id="detContent" hidden>
         <div class="method" data-i18n="methodology"></div>
 
         <h3 class="sec-title"><span class="sec-tag" data-i18n="det.model">Ficha técnica del modelo</span></h3>
         <table class="model-table">
           <tbody>
             <tr><th data-i18n="det.arch">Arquitectura</th><td data-i18n="det.archVal">CNN profunda (Hannun et al., Nature Medicine 2019) · 34 capas residuales / 1.3 M parámetros</td></tr>
-            <tr><th data-i18n="det.dataset">Conjunto de datos</th><td data-i18n="det.datasetVal">PhysioNet CinC2017 · ECG de una derivación · 300 Hz · segmentos de 256 muestras</td></tr>
+            <tr><th data-i18n="det.dataset">Conjunto de datos</th><td data-i18n="det.datasetVal">PhysioNet CinC2017 · ECG de una sola derivación · 300 Hz · segmentos de 256 muestras</td></tr>
             <tr><th data-i18n="det.classes">Ritmos reconocidos</th><td>{{ (model_info.classes) if model_info else '—' }}</td></tr>
             <tr><th data-i18n="det.val">Fe del entrenamiento (val)</th><td>
               {% if model_info and model_info.meta %}
@@ -173,6 +211,7 @@
             <tr><th data-i18n="det.trained">Entrenado</th><td>{{ model_train_date or '—' }}{% if model_hash %} · id <code>{{ model_hash }}</code>{% endif %}</td></tr>
           </tbody>
         </table>
+
         <div id="metricsBox" class="metrics" hidden>
           <h3 class="sec-title"><span class="sec-tag">Métricas de validación</span></h3>
           <div class="metrics-grid">
@@ -184,48 +223,32 @@
         <div id="intervalList" class="intervals"></div>
         <p class="hint muted"><code>python examples/cinc17/evaluate.py --saved {{ models_dir }} --save_metrics_dir webapp/static/metrics</code></p>
       </div>
-      </div><!-- /resultBody -->
     </section>
+
+    <!-- ======== PIE COMPACTO ======== -->
+    <footer class="site-footer">
+      <div class="footer-row">
+        <span class="footer-brand">ECG · <span data-i18n="app.title">Clasificador de ECG</span></span>
+        <span class="footer-meta">{{ project.institucion }} · {{ project.escuela }} · {{ project.anio }}</span>
+      </div>
+      <div class="footer-sep">
+        <span data-i18n="footer.author">Autor:</span> <b>{{ project.autor or '—' }}</b> ·
+        <span data-i18n="footer.advisor">Asesor:</span> <b>{{ project.asesor or '—' }}</b> ·
+        <span data-i18n="footer.model">Modelo</span> <code id="modelNameFooter">{{ model_hash or '—' }}</code>
+      </div>
+      <div class="footer-sep footer-refs">
+        <span data-i18n="footer.refs">Ref.:</span> Hannun AY et al. Nat Med 2019.
+        <a href="{{ reference.doi }}" target="_blank" rel="noopener">DOI {{ reference.doi.split('/')[-1] }}</a>
+      </div>
+      <p class="footer-disclaimer">
+        <span data-i18n="app.disclaimer">⚠️ Herramienta de investigación — no reemplaza la lectura de un cardiólogo.</span>
+        <span class="footer-academic" data-i18n="app.disclaimer2">Trabajo de Investigación · UNSA.</span>
+      </p>
+    </footer>
   </main>
+</div>
 
-  <!-- ================= PIE DE PÁGINA ================= -->
-  <footer class="site-footer">
-    <div class="footer-grid">
-      <div class="footer-col footer-about">
-        <div class="footer-brand"><span class="logo">ECG</span><span data-i18n="app.title">Clasificador de Electrocardiogramas</span></div>
-        <p data-i18n="app.summaryShort">Asistente automático de lectura de ECG de una sola derivación (Hannun et al., Nature Medicine 2019 · PhysioNet).</p>
-        <p class="footer-meta">{{ project.institucion }} · {{ project.escuela }}</p>
-      </div>
-
-      <div class="footer-col">
-        <h4 data-i18n="footer.auth">Ficha de autoría</h4>
-        <p class="kp"><span data-i18n="footer.author">Autor/a:</span> {{ project.autor or '—' }}</p>
-        <p class="kp"><span data-i18n="footer.advisor">Asesor/a:</span> {{ project.asesor or '—' }}</p>
-        <p class="kp"><span data-i18n="footer.course">Curso:</span> {{ project.curso }}{% if project.curso_codigo %} · {{ project.curso_codigo }}{% endif %} · {{ project.anio }}</p>
-        <p class="kp"><span data-i18n="footer.version">Versión:</span> {{ project.version }} · <span data-i18n="footer.model">Modelo:</span> <span id="modelNameFooter" style="font-size:.82em">{{ model_hash or '—' }}</span></p>
-      </div>
-
-      <div class="footer-col">
-        <h4 data-i18n="footer.privacy">Privacidad y seguridad</h4>
-        <p data-i18n="footer.privacyText">Los datos de paciente se usan solo en su navegador para el informe y se eliminan tras procesarse. Los archivos subidos no se conservan.</p>
-        <p class="kp" data-i18n="footer.academic">Sistema desarrollado con fines académicos de investigación.</p>
-      </div>
-    </div>
-
-    <!-- REFERENCIAS -->
-    <div class="footer-refs">
-      <h4 data-i18n="footer.refs">Referencias</h4>
-      <p>{{ reference.cita }} <a href="{{ reference.doi }}" target="_blank" rel="noopener">DOI {{ reference.doi.split('/')[-1] }}</a></p>
-      <p>{{ reference.dataset }}</p>
-    </div>
-
-    <p class="footer-disclaimer" data-i18n="app.disclaimer">
-      ⚠️ Herramienta de investigación. No sustituye la lectura de un cardiólogo ni debe usarse para diagnóstico clínico.
-    </p>
-    <p class="footer-academic" data-i18n="app.disclaimer2">Desarrollado como parte del curso Trabajo de Investigación · UNSA.</p>
-  </footer>
-
-  <script src="{{ url_for('static', filename='plotly.min.js') }}"></script>
-  <script src="{{ url_for('static', filename='app.js') }}"></script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a36161257cd1e7a9',t:'MTc4ODU3MDg5MQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script src="{{ url_for('static', filename='plotly.min.js') }}"></script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a361a6e71aea1fd8',t:'MTc4ODU3Mzc0OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
